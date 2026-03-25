@@ -32,8 +32,7 @@ const mapContainer = document.getElementById('mapContainer');
 const openGmapsBtn = document.getElementById('openGmapsBtn');
 const enableGpsBtn = document.getElementById('enableGpsBtn');
 const scanQrBtn = document.getElementById('scanQrBtn');
-const cameraModal = document.getElementById('cameraModal');
-const closeCameraBtn = document.getElementById('closeCameraBtn');
+const nativeCameraScanner = document.getElementById('nativeCameraScanner');
 
 const loginView = document.getElementById('loginView');
 const gameView = document.getElementById('gameView');
@@ -558,91 +557,47 @@ enableGpsBtn.addEventListener('click', () => {
 });
 
 let html5QrCode = null;
-let isCameraActive = false;
 
-scanQrBtn.addEventListener('click', () => {
-    cameraModal.style.display = 'flex';
+nativeCameraScanner.addEventListener('change', async (e) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const file = e.target.files[0];
+    const originalText = scanQrBtn.innerText;
+    scanQrBtn.innerText = "Analyzing... ⏳";
     
     if (!html5QrCode) {
         html5QrCode = new Html5Qrcode("reader");
     }
-    
-    let isProcessingScan = false;
-    
-    const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-    
-    const onScanSuccess = (decodedText) => {
-        if (isProcessingScan) return;
-        isProcessingScan = true;
-        console.log("Scanned QR Code:", decodedText);
+
+    try {
+        const decodedText = await html5QrCode.scanFile(file, true);
+        console.log("OS Decoded QR payload:", decodedText);
         
         let extractedId = null;
         if (decodedText.includes("fox=")) {
             try {
                 const url = new URL(decodedText);
                 extractedId = url.searchParams.get("fox");
-            } catch(e) {
+            } catch(err) {
                 extractedId = decodedText.split('fox=')[1].split('&')[0];
             }
         } else {
             extractedId = decodedText;
         }
-        
+
         if (extractedId) {
-            console.log("Extracted Fox ID from QR:", extractedId);
-            html5QrCode.stop().then(() => {
-                isCameraActive = false;
-                cameraModal.style.display = 'none';
-                foxIdScanned = extractedId;
-                checkPendingScans();
-            }).catch(() => {
-                cameraModal.style.display = 'none';
-            });
+            foxIdScanned = extractedId;
+            checkPendingScans();
         } else {
-            console.error("Invalid QR format scanned.");
-            isProcessingScan = false;
+            alert("QR Error: We couldn't extract a valid ID from that image.");
         }
-    };
-
-    const startCamera = async () => {
-        try {
-            console.log("Attempting to start rear environment camera...");
-            await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, () => {});
-            isCameraActive = true;
-            console.log("Rear camera started successfully.");
-        } catch(err) {
-            console.warn("Failed to start environment camera, attempting manual fallback traversal...", err);
-            try {
-                const devices = await Html5Qrcode.getCameras();
-                if (devices && devices.length > 0) {
-                    await html5QrCode.start(devices[0].id, config, onScanSuccess, () => {});
-                    isCameraActive = true;
-                    console.log("Fallback camera started successfully.");
-                } else {
-                    throw new Error("No cameras structurally accessible on device.");
-                }
-            } catch (fallbackErr) {
-                console.error("Camera start fallback completely failed:", fallbackErr);
-                alert("Camera Access Denied! Please ensure your browser has permission to use the camera.");
-                cameraModal.style.display = 'none';
-            }
-        }
-    };
-    
-    startCamera();
-});
-
-closeCameraBtn.addEventListener('click', () => {
-    if (html5QrCode && isCameraActive) {
-        html5QrCode.stop().then(() => {
-            isCameraActive = false;
-            cameraModal.style.display = 'none';
-        }).catch(() => {
-            cameraModal.style.display = 'none';
-        });
-    } else {
-        cameraModal.style.display = 'none';
+    } catch(err) {
+        console.error("QR Decoding Engine Error:", err);
+        showModal("Scanning Error 📸", "We could not find a distinct QR code in that photo. Please get closer and make sure the QR code is centered and bright!", false, "Try Again");
     }
+    
+    scanQrBtn.innerText = originalText;
+    nativeCameraScanner.value = ''; // Safely reset file structure so re-snaps trigger exactly.
 });
 
 setTargetBtn.addEventListener('click', async () => {

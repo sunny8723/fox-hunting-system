@@ -51,7 +51,8 @@
       <p class="subtitle" id="coordsDisplay" style="margin-bottom: 10px; font-size: 0.75rem; color: #fff;">GPS Access Pending...</p>
       <button id="enableGpsBtn" style="background: var(--accent); color: #fff; margin-bottom: 10px; font-size: 0.9rem; padding: 0.5rem 1rem;">Enable GPS 📍</button>
       <div>
-          <button id="scanQrBtn" style="background: #10b981; color: #fff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); border:none; border-radius:8px; font-size: 0.9rem; padding: 0.5rem 1rem; margin-right: 5px; display: none;">Scan Target 📷</button>
+          <label for="nativeCameraScanner" id="scanQrBtn" style="background: #10b981; color: #fff; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); border:none; border-radius:8px; font-size: 0.9rem; padding: 0.5rem 1rem; margin-right: 5px; display: none; cursor: pointer; transition: 0.2s;">Scan Target 📷</label>
+          <input type="file" accept="image/*" capture="environment" id="nativeCameraScanner" style="display:none;">
           <button id="openGmapsBtn" style="background: rgba(255,255,255,0.15); color: #fff; box-shadow: none; font-size: 0.9rem; padding: 0.5rem 1rem; display: none;">Open in Google Maps 🗺️</button>
       </div>
     </div>
@@ -115,12 +116,8 @@
       </div>
   </div>
 
-  <!-- In-Browser Camera Scanner Modal -->
-  <div id="cameraModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2000; flex-direction: column; justify-content: center; align-items: center; padding: 1rem;">
-      <h3 style="color: white; margin-bottom: 20px;">Scan Fox Identity Marker</h3>
-      <div id="reader" style="width: 100%; max-width: 400px; background: #111; border-radius: 12px; overflow: hidden; border: 2px solid var(--accent);"></div>
-      <button id="closeCameraBtn" style="margin-top: 20px; background: var(--danger); color: white; padding: 0.8rem 2rem; border-radius: 8px;">Cancel Scan</button>
-  </div>
+  <!-- Hidden DOM node for HTML5-QRCode processing matrix -->
+  <div id="reader" style="display: none;"></div>
 
   <!-- Main Pure JS Application -->
   <script src="script.js"></script>
