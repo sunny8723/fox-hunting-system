@@ -28,6 +28,7 @@ let allFoxes = [];
 let lastBoundsUpdate = 0;
 const mapContainer = document.getElementById('mapContainer');
 const openGmapsBtn = document.getElementById('openGmapsBtn');
+const enableGpsBtn = document.getElementById('enableGpsBtn');
 
 const loginView = document.getElementById('loginView');
 const gameView = document.getElementById('gameView');
@@ -308,44 +309,65 @@ joinBtn.addEventListener('click', async () => {
             await db.collection('players').doc(myId).set({ 
                 name, lat: null, lng: null, updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
             });
-            console.log("Player joined successfully and logged to Firestore.");
+            console.log("Player joined successfully and placeholder logged to Firestore.");
         } catch(e) { console.error("Error joining game:", e); }
 
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(async (position) => {
-                currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
-                
-                try {
-                    await db.collection('players').doc(myId).set({ 
-                        name, 
-                        lat: currentCoords.lat, 
-                        lng: currentCoords.lng,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
-                    }, { merge: true });
-                    console.log("Location successfully pushed to Firestore.");
-                } catch(e) { console.error("Error pushing location:", e); }
-                
-                updateStudentUI();
-            }, (err) => {
-                console.error("GPS Tracking Error:", err);
-                coordsDisplay.innerText = "GPS access denied or unavailable.";
-            }, { enableHighAccuracy: true });
-            
-            setInterval(async () => {
-                try {
-                    if (currentCoords) {
-                        await db.collection('players').doc(myId).set({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-                    }
-                } catch(e) {}
-            }, 10000); // 10s keep-alive 
-            
-        } else {
-            coordsDisplay.innerText = "Geolocation not supported.";
-        }
+        console.log("Waiting for user to manually initialize GPS via explicit button click.");
 
         window.addEventListener('beforeunload', () => {
              db.collection('players').doc(myId).delete();
         });
+    }
+});
+
+enableGpsBtn.addEventListener('click', () => {
+    console.log("User clicked 'Enable GPS'. Requesting Permission...");
+    coordsDisplay.innerText = "Requesting GPS Access...";
+    coordsDisplay.style.color = "#fff";
+    
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(async (position) => {
+            console.log("Location successfully received locally:", position.coords.latitude, position.coords.longitude);
+            
+            // Hide the Enable button explicitly and show Google Maps button
+            enableGpsBtn.style.display = 'none';
+            openGmapsBtn.style.display = 'inline-block';
+            
+            currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
+            
+            try {
+                await db.collection('players').doc(myId).set({ 
+                    name: playerNameInput.value.trim(), 
+                    lat: currentCoords.lat, 
+                    lng: currentCoords.lng,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+                }, { merge: true });
+                console.log("Location successfully pushed to Firestore.");
+            } catch(e) { console.error("Error pushing location:", e); }
+            
+            updateStudentUI();
+        }, (err) => {
+            console.error("GPS Tracking Error:", err);
+            let errMsg = "Unknown GPS Error.";
+            if (err.code === 1) errMsg = "Location access is blocked. Please enable it in browser settings.";
+            if (err.code === 2) errMsg = "Location unavailable. Please check your physical GPS.";
+            if (err.code === 3) errMsg = "GPS request timed out. Retrying...";
+            coordsDisplay.innerText = errMsg;
+            coordsDisplay.style.color = "var(--danger)";
+        }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+        
+        // Setup the 10-second heartbeat to keep player listed as "active" in the DB
+        setInterval(async () => {
+            try {
+                if (currentCoords) {
+                    await db.collection('players').doc(myId).set({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                }
+            } catch(e) {}
+        }, 10000); 
+        
+    } else {
+        coordsDisplay.innerText = "Geolocation not supported by this browser.";
+        coordsDisplay.style.color = "var(--danger)";
     }
 });
 
