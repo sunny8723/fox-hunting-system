@@ -326,45 +326,66 @@ enableGpsBtn.addEventListener('click', () => {
     coordsDisplay.style.color = "#fff";
     
     if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(async (position) => {
-            console.log("Location successfully received locally:", position.coords.latitude, position.coords.longitude);
-            
-            // Hide the Enable button explicitly and show Google Maps button
-            enableGpsBtn.style.display = 'none';
-            openGmapsBtn.style.display = 'inline-block';
-            
-            currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
-            
-            try {
-                await db.collection('players').doc(myId).set({ 
-                    name: playerNameInput.value.trim(), 
-                    lat: currentCoords.lat, 
-                    lng: currentCoords.lng,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
-                }, { merge: true });
-                console.log("Location successfully pushed to Firestore.");
-            } catch(e) { console.error("Error pushing location:", e); }
-            
-            updateStudentUI();
-        }, (err) => {
-            console.error("GPS Tracking Error:", err);
-            let errMsg = "Unknown GPS Error.";
-            if (err.code === 1) errMsg = "Location access is blocked. Please enable it in browser settings.";
-            if (err.code === 2) errMsg = "Location unavailable. Please check your physical GPS.";
-            if (err.code === 3) errMsg = "GPS request timed out. Retrying...";
-            coordsDisplay.innerText = errMsg;
-            coordsDisplay.style.color = "var(--danger)";
-        }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
-        
-        // Setup the 10-second heartbeat to keep player listed as "active" in the DB
-        setInterval(async () => {
-            try {
-                if (currentCoords) {
-                    await db.collection('players').doc(myId).set({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-                }
-            } catch(e) {}
-        }, 10000); 
-        
+        // STEP 1: Fast ping (low accuracy) to force permissions quickly / rely on cellular towers
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                console.log("Initial quick location received:", position.coords.latitude, position.coords.longitude);
+                
+                enableGpsBtn.style.display = 'none';
+                openGmapsBtn.style.display = 'inline-block';
+                
+                currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
+                
+                try {
+                    await db.collection('players').doc(myId).set({ 
+                        name: playerNameInput.value.trim(), 
+                        lat: currentCoords.lat, 
+                        lng: currentCoords.lng,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+                    }, { merge: true });
+                } catch(e) {}
+                
+                updateStudentUI();
+
+                // STEP 2: Spin up the High Accuracy walker watchPosition in the background
+                navigator.geolocation.watchPosition(
+                    async (highPos) => {
+                        currentCoords = { lat: highPos.coords.latitude, lng: highPos.coords.longitude };
+                        try {
+                            await db.collection('players').doc(myId).set({ 
+                                lat: currentCoords.lat, 
+                                lng: currentCoords.lng,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+                            }, { merge: true });
+                        } catch(e) {}
+                        updateStudentUI();
+                    }, 
+                    (err) => console.log("High accuracy tracker waiting:", err.message), 
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+                );
+                
+                // 10-second heartbeat to keep player listed as "active" natively
+                setInterval(async () => {
+                    try {
+                        if (currentCoords) {
+                            await db.collection('players').doc(myId).set({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                        }
+                    } catch(e) {}
+                }, 10000); 
+                
+            }, 
+            (err) => {
+                console.error("GPS Initial Fetch Error:", err);
+                let errMsg = "Unknown GPS Error.";
+                if (err.code === 1) errMsg = "Location access blocked natively. Check Browser Settings.";
+                if (err.code === 2) errMsg = "Location unavailable. Please turn on phone GPS.";
+                if (err.code === 3) errMsg = "GPS request timed out. You may be deep indoors.";
+                coordsDisplay.innerText = errMsg;
+                coordsDisplay.style.color = "var(--danger)";
+                enableGpsBtn.innerText = "Retry GPS 📍";
+            }, 
+            { enableHighAccuracy: false, maximumAge: 300000, timeout: 10000 }
+        );
     } else {
         coordsDisplay.innerText = "Geolocation not supported by this browser.";
         coordsDisplay.style.color = "var(--danger)";
