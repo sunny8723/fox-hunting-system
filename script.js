@@ -129,9 +129,13 @@ function drawMap() {
     }
 }
 
-function showModal(title, body) {
+function showModal(title, body, isHtml = false) {
     document.getElementById('modalTitle').innerText = title;
-    document.getElementById('modalBody').innerText = body;
+    if (isHtml) {
+        document.getElementById('modalBody').innerHTML = body;
+    } else {
+        document.getElementById('modalBody').innerText = body;
+    }
     document.getElementById('discoveryModal').style.display = 'flex';
 }
 
@@ -249,9 +253,26 @@ function renderAdminTargets() {
                 <strong style="color: #fff;">Fox Target ${idx+1}</strong>
                 <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 10px;">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</span>
             </div>
-            <button id="disable-btn-${f.id}" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); box-shadow: none;">Disable</button>
+            <div>
+                <button id="qr-btn-${f.id}" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--accent); box-shadow: none; margin-right: 5px;">QR Code</button>
+                <button id="disable-btn-${f.id}" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); box-shadow: none;">Disable</button>
+            </div>
         `;
         list.appendChild(item);
+        
+        document.getElementById(`qr-btn-${f.id}`).addEventListener('click', () => {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const fullUrl = `${baseUrl}?fox=${f.id}`;
+            const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(fullUrl)}`;
+            
+            const modalHtml = `
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.95rem;">Print or save this QR code and tape it exactly at the physical GPS location for operatives to scan!</p>
+                <div style="background: white; padding: 15px; display: inline-block; border-radius: 8px; margin-bottom: 1rem;">
+                    <img src="${qrSrc}" alt="QR Code" width="200" height="200" style="display: block;">
+                </div>
+            `;
+            showModal(`Fox ${idx+1} QR Code`, modalHtml, true);
+        });
         
         document.getElementById(`disable-btn-${f.id}`).addEventListener('click', async () => {
             try {
