@@ -147,43 +147,60 @@ function showModal(title, body, isHtml = false, btnText = "Claim Reward 🦊") {
 async function checkPendingScans() {
     if (!foxIdScanned || !currentCoords || isAdmin || allFoxes.length === 0) return;
     
+    console.log("Analyzing scanned QR code for Fox ID:", foxIdScanned);
     const targetFoxId = foxIdScanned; 
+    foxIdScanned = null; // Clear to prevent loops
+    
+    const foxIdx = allFoxes.findIndex(f => f.id === targetFoxId);
+    const displayFox = foxIdx !== -1 ? `Fox Target ${foxIdx + 1}` : `the Target`;
+    
     const alreadyDiscovered = allDiscoveries.some(d => d.playerId === myId && d.foxId === targetFoxId);
     if (alreadyDiscovered) {
-        showModal("Already Discovered", `You have already hunted Fox ${targetFoxId}!`, false, "Okay");
+        console.log("Firestore Check: Player already claimed this fox.");
+        showModal("Already Discovered", `You have already hunted ${displayFox}!`, false, "Okay");
         window.history.replaceState({}, document.title, window.location.pathname);
-        foxIdScanned = null;
         return;
     }
 
-    let minD = Infinity;
-    allFoxes.forEach(f => {
-        const d = calculateDistance(currentCoords.lat, currentCoords.lng, f.lat, f.lng);
-        if (d < minD) minD = d;
-    });
-
-    if (minD > 20) {
-        showModal("Too Far!", `You must be physically within 20 meters of the GPS target to claim Fox ${targetFoxId}. You are ${Math.round(minD)}m away.`, false, "Keep Hunting 🧭");
+    const foxTarget = allFoxes.find(f => f.id === targetFoxId);
+    if (!foxTarget) {
+        console.error("Validation Failed: Target Fox ID not found in live active foxes.");
+        showModal("Target Missing", "This Fox does not exist or was disabled by Admin.", false, "Okay");
         window.history.replaceState({}, document.title, window.location.pathname);
-        foxIdScanned = null;
+        return;
+    }
+
+    const dist = calculateDistance(currentCoords.lat, currentCoords.lng, foxTarget.lat, foxTarget.lng);
+    console.log(`Calculated physical distance to scanned Fox: ${dist} meters`);
+
+    if (dist > 20) {
+        console.log("Validation Failed: Too far from target.");
+        showModal("Too Far!", `You must be physically within 20 meters of the specific GPS target to claim ${displayFox}. You are ${Math.round(dist)}m away.`, false, "Keep Hunting 🧭");
+        window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-        foxIdScanned = null; 
+        console.log("Validation Passed! Writing discovery to Firestore...");
         try {
             await db.collection('discoveries').add({
                 playerName: playerNameInput.value.trim() || 'Operative',
                 playerId: myId,
                 foxId: targetFoxId,
+                lat: currentCoords.lat,
+                lng: currentCoords.lng,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
-            showModal("🦊 Fox Discovered!", `Incredible! You have successfully hunted and claimed Fox ${targetFoxId}!`, false, "Claim Reward 🦊");
+            console.log("Discovery successfully written to Firestore!");
+            showModal("🎉 Target Discovered!", `Incredible! You have successfully hunted and claimed ${displayFox}!`, false, "Back to Hunting 🦊");
             window.history.replaceState({}, document.title, window.location.pathname);
-        } catch(e) { console.error("Error saving discovery", e); }
+        } catch(e) { 
+            console.error("Firestore Error saving discovery:", e); 
+            alert("Database Error: Failed to save discovery. Please check connection.");
+        }
     }
 }
 
 function updateStudentUI() {
     if (currentCoords) {
-        coordsDisplay.innerText = `GPS: ${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}`;
+        coordsDisplay.innerText = `GPS: ${currentCoords.lat.toFixed(7)}, ${currentCoords.lng.toFixed(7)}`;
     }
     
     if (allFoxes.length > 0 && currentCoords) {
@@ -256,7 +273,7 @@ function renderAdminTargets() {
         item.innerHTML = `
             <div>
                 <strong style="color: #fff;">Fox Target ${idx+1}</strong>
-                <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 10px;">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</span>
+                <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 10px;">${f.lat.toFixed(7)}, ${f.lng.toFixed(7)}</span>
             </div>
             <div>
                 <button id="qr-btn-${f.id}" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--accent); box-shadow: none; margin-right: 5px;">QR Code</button>
@@ -338,7 +355,7 @@ function renderAdminParticipants() {
             distText = `${minD > 1000 ? (minD/1000).toFixed(2) + ' km' : Math.round(minD) + ' m'} to closest fox`;
         }
         
-        const coordsText = (p.lat && p.lng) ? `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` : 'Waiting for GPS...';
+        const coordsText = (p.lat && p.lng) ? `${p.lat.toFixed(7)}, ${p.lng.toFixed(7)}` : 'Waiting for GPS...';
 
         card.innerHTML = `
             <div class="participant-name">${p.name}</div>
@@ -375,10 +392,16 @@ function renderAdminDiscoveries() {
             timeStr = d.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         }
 
+        let foxDisplay = `a Target`;
+        const matchedIndex = allFoxes.findIndex(f => f.id === d.foxId);
+        if (matchedIndex !== -1) {
+            foxDisplay = `Fox Target ${matchedIndex + 1}`;
+        }
+        
         item.innerHTML = `
             <div>
                 <strong style="color: #10b981;">${d.playerName}</strong>
-                <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 5px;">found Fox ${d.foxId}</span>
+                <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 5px;">found ${foxDisplay}</span>
             </div>
             <span style="font-size: 0.8rem; color: #fff;">${timeStr}</span>
         `;
@@ -546,48 +569,67 @@ scanQrBtn.addEventListener('click', () => {
     
     let isProcessingScan = false;
     
-    html5QrCode.start(
-        { facingMode: "environment" }, 
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
-        (decodedText, decodedResult) => {
-            // Lock out multi-frame race conditions
-            if (isProcessingScan) return;
-            isProcessingScan = true;
-            console.log("Scanned QR Code:", decodedText);
-            
-            let extractedId = null;
-            if (decodedText.includes("fox=")) {
-                try {
-                    const url = new URL(decodedText);
-                    extractedId = url.searchParams.get("fox");
-                } catch(e) {
-                    extractedId = decodedText.split('fox=')[1].split('&')[0];
+    const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+    
+    const onScanSuccess = (decodedText) => {
+        if (isProcessingScan) return;
+        isProcessingScan = true;
+        console.log("Scanned QR Code:", decodedText);
+        
+        let extractedId = null;
+        if (decodedText.includes("fox=")) {
+            try {
+                const url = new URL(decodedText);
+                extractedId = url.searchParams.get("fox");
+            } catch(e) {
+                extractedId = decodedText.split('fox=')[1].split('&')[0];
+            }
+        } else {
+            extractedId = decodedText;
+        }
+        
+        if (extractedId) {
+            console.log("Extracted Fox ID from QR:", extractedId);
+            html5QrCode.stop().then(() => {
+                isCameraActive = false;
+                cameraModal.style.display = 'none';
+                foxIdScanned = extractedId;
+                checkPendingScans();
+            }).catch(() => {
+                cameraModal.style.display = 'none';
+            });
+        } else {
+            console.error("Invalid QR format scanned.");
+            isProcessingScan = false;
+        }
+    };
+
+    const startCamera = async () => {
+        try {
+            console.log("Attempting to start rear environment camera...");
+            await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, () => {});
+            isCameraActive = true;
+            console.log("Rear camera started successfully.");
+        } catch(err) {
+            console.warn("Failed to start environment camera, attempting manual fallback traversal...", err);
+            try {
+                const devices = await Html5Qrcode.getCameras();
+                if (devices && devices.length > 0) {
+                    await html5QrCode.start(devices[0].id, config, onScanSuccess, () => {});
+                    isCameraActive = true;
+                    console.log("Fallback camera started successfully.");
+                } else {
+                    throw new Error("No cameras structurally accessible on device.");
                 }
-            } else {
-                extractedId = decodedText;
+            } catch (fallbackErr) {
+                console.error("Camera start fallback completely failed:", fallbackErr);
+                alert("Camera Access Denied! Please ensure your browser has permission to use the camera.");
+                cameraModal.style.display = 'none';
             }
-            
-            if (extractedId) {
-                html5QrCode.stop().then(() => {
-                    isCameraActive = false;
-                    cameraModal.style.display = 'none';
-                    foxIdScanned = extractedId;
-                    checkPendingScans();
-                }).catch(() => {
-                    cameraModal.style.display = 'none';
-                });
-            } else {
-                isProcessingScan = false;
-            }
-        },
-        (errorMessage) => {} // ignore frame errors
-    ).then(() => {
-        isCameraActive = true;
-    }).catch((err) => {
-        console.error("Camera start error:", err);
-        alert("Camera could not be started. Please ensure you have allowed Camera Permissions in your browser settings!");
-        cameraModal.style.display = 'none';
-    });
+        }
+    };
+    
+    startCamera();
 });
 
 closeCameraBtn.addEventListener('click', () => {
