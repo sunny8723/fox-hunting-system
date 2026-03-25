@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foxhunting</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- LOGIN VIEW -->
+  <div class="glass-container" id="loginView">
+    <h1>Foxhunting Agent</h1>
+    <p class="subtitle">Join the hunt or command the field.</p>
+    <div class="form-group">
+      <label for="playerName">Operative Name</label>
+      <input type="text" id="playerName" placeholder="Enter your name (Student)" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label for="adminPassword" style="color: var(--text-muted); font-size: 0.75rem;">Admin Password (Leave blank if you're a student)</label>
+      <input type="password" id="adminPassword" placeholder="Admin Secret Password" autocomplete="off">
+    </div>
+    <button id="joinBtn">Deploy / Login</button>
+  </div>
+
+  <!-- STUDENT VIEW -->
+  <div id="gameView" style="display: none; width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 50;">
+    
+    <!-- FULLSCREEN MAP -->
+    <div id="mapContainer" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;">
+        <div id="map" style="height: 100%; width: 100%;"></div>
+    </div>
+    
+    <!-- FLOATING UI TOP -->
+    <div class="floating-panel top-panel" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10; width: 90%; max-width: 400px; padding: 1rem;">
+      <div id="statusIndicator" class="status-pill waiting" style="width: 100%; margin: 0 0 10px 0;">
+        <div class="pulse-dot"></div>
+        <span id="statusText">Awaiting Target Coordinates...</span>
+      </div>
+      <div class="distance-display" style="margin: 0; text-align: center;">
+        <div class="distance-value" id="distanceVal" style="font-size: 3rem;">--</div>
+        <div class="distance-unit">meters</div>
+      </div>
+    </div>
+    
+    <!-- FLOATING UI BOTTOM -->
+    <div class="floating-panel bottom-panel" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; width: 90%; max-width: 400px; padding: 1rem; text-align: center;">
+      <p class="subtitle" id="coordsDisplay" style="margin-bottom: 10px; font-size: 0.75rem; color: #fff;">GPS Access Pending...</p>
+      <button id="openGmapsBtn" style="background: rgba(255,255,255,0.15); color: #fff; box-shadow: none; font-size: 0.9rem; padding: 0.5rem 1rem;">Open in Google Maps 🗺️</button>
+    </div>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div class="glass-container admin-container" id="adminView" style="display: none;">
+    <h1>Command Center</h1>
+    <p class="subtitle">Set the target location and monitor field operatives.</p>
+    
+    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">Set Target Coordinate (The Fox)</h3>
+      <div style="display: flex; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; margin: 0; min-width: 200px;">
+          <label>Latitude</label>
+          <input type="number" step="any" id="targetLat" placeholder="e.g. 51.5074">
+        </div>
+        <div class="form-group" style="flex: 1; margin: 0; min-width: 200px;">
+          <label>Longitude</label>
+          <input type="number" step="any" id="targetLng" placeholder="e.g. -0.1278">
+        </div>
+      </div>
+      <button id="setTargetBtn" style="margin-top: 1rem;">Broadcast Target</button>
+    </div>
+
+    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">Active Targets (Foxes)</h3>
+      <div id="adminTargetsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <p style="color: var(--text-muted);">No active targets.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-bottom: 1rem;">Active Operatives</h3>
+    <div class="grid" id="participantsGrid">
+      <p style="color: var(--text-muted);">No operatives active.</p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

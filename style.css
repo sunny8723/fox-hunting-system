@@ -1,0 +1,83 @@
+:root {
+  --bg-color: #0f172a;
+  --panel-bg: rgba(30, 41, 59, 0.7);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --danger: #ef4444;
+  --success: #10b981;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body { background: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: hidden; padding: 1rem; }
+
+.glass-container {
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+h1 { font-size: 2rem; margin-bottom: 0.5rem; text-align: center; background: linear-gradient(to right, #60a5fa, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+p.subtitle { text-align: center; color: var(--text-muted); margin-bottom: 2rem; }
+
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+label { font-size: 0.875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+input { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 0.75rem 1rem; border-radius: 8px; font-size: 1rem; outline: none; transition: border-color 0.3s; }
+input:focus { border-color: var(--accent); }
+
+button { background: var(--accent); color: #fff; border: none; padding: 0.875rem 1.5rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; width: 100%; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+button:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4); }
+button:active { transform: translateY(0); }
+
+/* Status & Distance */
+.status-pill { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.5rem 1rem; background: rgba(16, 185, 129, 0.1); color: var(--success); border-radius: 999px; font-size: 0.875rem; font-weight: 500; margin-bottom: 1rem; width: 100%; }
+.status-pill.waiting { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(currentColor, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(currentColor, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(currentColor, 0); }
+}
+
+.distance-display { text-align: center; margin: 2rem 0; }
+.distance-value { font-size: 4rem; font-weight: 800; line-height: 1; margin-bottom: 0.5rem; }
+.distance-unit { font-size: 1.25rem; color: var(--text-muted); }
+
+/* Admin Grid */
+.admin-container { max-width: 900px; width: 100%; max-height: 95vh; display: flex; flex-direction: column; overflow-y: auto; padding-bottom: 1rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; padding-bottom: 2rem;}
+.participant-card { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.5rem; animation: slideUp 0.3s ease; }
+.participant-name { font-size: 1.25rem; font-weight: 600; color: #fff; }
+.participant-dist { color: var(--accent); font-weight: 500; }
+.participant-coords { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+.floating-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  animation: fadeInDown 0.5s ease-out;
+}
+.bottom-panel { animation: fadeInUp 0.5s ease-out; }
+
+@keyframes fadeInDown { from { opacity: 0; transform: translate(-50%, -20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes fadeInUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Leaflet override */
+.leaflet-control-attribution { background: rgba(0,0,0,0.5) !important; color: #aaa !important; }
+.leaflet-control-attribution a { color: #fff !important; }
