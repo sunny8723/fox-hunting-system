@@ -31,6 +31,9 @@ let lastBoundsUpdate = 0;
 const mapContainer = document.getElementById('mapContainer');
 const openGmapsBtn = document.getElementById('openGmapsBtn');
 const enableGpsBtn = document.getElementById('enableGpsBtn');
+const scanQrBtn = document.getElementById('scanQrBtn');
+const cameraModal = document.getElementById('cameraModal');
+const closeCameraBtn = document.getElementById('closeCameraBtn');
 
 const loginView = document.getElementById('loginView');
 const gameView = document.getElementById('gameView');
@@ -129,13 +132,15 @@ function drawMap() {
     }
 }
 
-function showModal(title, body, isHtml = false) {
+function showModal(title, body, isHtml = false, btnText = "Claim Reward 🦊") {
     document.getElementById('modalTitle').innerText = title;
     if (isHtml) {
         document.getElementById('modalBody').innerHTML = body;
     } else {
         document.getElementById('modalBody').innerText = body;
     }
+    const actionBtn = document.getElementById('modalActionBtn');
+    if (actionBtn) actionBtn.innerText = btnText;
     document.getElementById('discoveryModal').style.display = 'flex';
 }
 
@@ -145,7 +150,7 @@ async function checkPendingScans() {
     const targetFoxId = foxIdScanned; 
     const alreadyDiscovered = allDiscoveries.some(d => d.playerId === myId && d.foxId === targetFoxId);
     if (alreadyDiscovered) {
-        showModal("Already Discovered", `You have already hunted Fox ${targetFoxId}!`);
+        showModal("Already Discovered", `You have already hunted Fox ${targetFoxId}!`, false, "Okay");
         window.history.replaceState({}, document.title, window.location.pathname);
         foxIdScanned = null;
         return;
@@ -158,7 +163,7 @@ async function checkPendingScans() {
     });
 
     if (minD > 20) {
-        showModal("Too Far!", `You must be physically within 20 meters of the GPS target to claim Fox ${targetFoxId}. You are ${Math.round(minD)}m away.`);
+        showModal("Too Far!", `You must be physically within 20 meters of the GPS target to claim Fox ${targetFoxId}. You are ${Math.round(minD)}m away.`, false, "Keep Hunting 🧭");
         window.history.replaceState({}, document.title, window.location.pathname);
         foxIdScanned = null;
     } else {
@@ -170,7 +175,7 @@ async function checkPendingScans() {
                 foxId: targetFoxId,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
-            showModal("🦊 Fox Discovered!", `Incredible! You have successfully hunted and claimed Fox ${targetFoxId}!`);
+            showModal("🦊 Fox Discovered!", `Incredible! You have successfully hunted and claimed Fox ${targetFoxId}!`, false, "Claim Reward 🦊");
             window.history.replaceState({}, document.title, window.location.pathname);
         } catch(e) { console.error("Error saving discovery", e); }
     }
@@ -263,15 +268,43 @@ function renderAdminTargets() {
         document.getElementById(`qr-btn-${f.id}`).addEventListener('click', () => {
             const baseUrl = window.location.origin + window.location.pathname;
             const fullUrl = `${baseUrl}?fox=${f.id}`;
-            const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(fullUrl)}`;
+            const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(fullUrl)}`;
             
             const modalHtml = `
                 <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.95rem;">Print or save this QR code and tape it exactly at the physical GPS location for operatives to scan!</p>
                 <div style="background: white; padding: 15px; display: inline-block; border-radius: 8px; margin-bottom: 1rem;">
                     <img src="${qrSrc}" alt="QR Code" width="200" height="200" style="display: block;">
                 </div>
+                <br>
+                <button id="downloadQrBtn" style="background: #3b82f6; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); margin-bottom: 10px;">Download PNG 📥</button>
             `;
-            showModal(`Fox ${idx+1} QR Code`, modalHtml, true);
+            showModal(`Fox ${idx+1} QR Code`, modalHtml, true, "Close");
+            
+            setTimeout(() => {
+                const dlBtn = document.getElementById('downloadQrBtn');
+                if (dlBtn) {
+                    dlBtn.addEventListener('click', async () => {
+                        dlBtn.innerText = "Downloading...";
+                        try {
+                            const res = await fetch(qrSrc);
+                            if (!res.ok) throw new Error("Fetch failed");
+                            const blob = await res.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Fox-${idx+1}-QRCode.png`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                            dlBtn.innerText = "Downloaded! ✅";
+                        } catch(e) {
+                            window.open(qrSrc, '_blank');
+                            dlBtn.innerText = "Download PNG 📥";
+                        }
+                    });
+                }
+            }, 50);
         });
         
         document.getElementById(`disable-btn-${f.id}`).addEventListener('click', async () => {
@@ -441,6 +474,7 @@ enableGpsBtn.addEventListener('click', () => {
                 
                 enableGpsBtn.style.display = 'none';
                 openGmapsBtn.style.display = 'inline-block';
+                scanQrBtn.style.display = 'inline-block';
                 
                 currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
                 
@@ -497,6 +531,54 @@ enableGpsBtn.addEventListener('click', () => {
     } else {
         coordsDisplay.innerText = "Geolocation not supported by this browser.";
         coordsDisplay.style.color = "var(--danger)";
+    }
+});
+
+let html5QrcodeScanner = null;
+
+scanQrBtn.addEventListener('click', () => {
+    cameraModal.style.display = 'flex';
+    
+    if (!html5QrcodeScanner) {
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { fps: 15, qrbox: {width: 250, height: 250}, aspectRatio: 1.0, disableFlip: false }
+        );
+    }
+    
+    html5QrcodeScanner.render((decodedText, decodedResult) => {
+        console.log("Scanned Native QR Code:", decodedText);
+        try {
+            let extractedId = null;
+            if (decodedText.includes("fox=")) {
+                const url = new URL(decodedText);
+                extractedId = url.searchParams.get("fox");
+            } else {
+                extractedId = decodedText; // Fallback plain text ID
+            }
+            
+            if (extractedId) {
+                // Instantly shut down camera stream to save battery
+                html5QrcodeScanner.clear().then(() => {
+                    cameraModal.style.display = 'none';
+                    foxIdScanned = extractedId;
+                    checkPendingScans(); // Dynamically trigger the live physical validation loop!
+                });
+            }
+        } catch(e) {
+            console.error("Invalid QR format:", e);
+            alert("This QR Code is not recognized by the Fox Hunting System.");
+        }
+    }, (error) => {}); // Ignore silent frame tracking fails
+});
+
+closeCameraBtn.addEventListener('click', () => {
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().then(() => {
+            cameraModal.style.display = 'none';
+        });
+    } else {
+        cameraModal.style.display = 'none';
     }
 });
 
