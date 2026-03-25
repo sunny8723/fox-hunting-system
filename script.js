@@ -534,47 +534,68 @@ enableGpsBtn.addEventListener('click', () => {
     }
 });
 
-let html5QrcodeScanner = null;
+let html5QrCode = null;
+let isCameraActive = false;
 
 scanQrBtn.addEventListener('click', () => {
     cameraModal.style.display = 'flex';
     
-    if (!html5QrcodeScanner) {
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", 
-            { fps: 15, qrbox: {width: 250, height: 250}, aspectRatio: 1.0, disableFlip: false }
-        );
+    if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
     }
     
-    html5QrcodeScanner.render((decodedText, decodedResult) => {
-        console.log("Scanned Native QR Code:", decodedText);
-        try {
+    let isProcessingScan = false;
+    
+    html5QrCode.start(
+        { facingMode: "environment" }, 
+        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+        (decodedText, decodedResult) => {
+            // Lock out multi-frame race conditions
+            if (isProcessingScan) return;
+            isProcessingScan = true;
+            console.log("Scanned QR Code:", decodedText);
+            
             let extractedId = null;
             if (decodedText.includes("fox=")) {
-                const url = new URL(decodedText);
-                extractedId = url.searchParams.get("fox");
+                try {
+                    const url = new URL(decodedText);
+                    extractedId = url.searchParams.get("fox");
+                } catch(e) {
+                    extractedId = decodedText.split('fox=')[1].split('&')[0];
+                }
             } else {
-                extractedId = decodedText; // Fallback plain text ID
+                extractedId = decodedText;
             }
             
             if (extractedId) {
-                // Instantly shut down camera stream to save battery
-                html5QrcodeScanner.clear().then(() => {
+                html5QrCode.stop().then(() => {
+                    isCameraActive = false;
                     cameraModal.style.display = 'none';
                     foxIdScanned = extractedId;
-                    checkPendingScans(); // Dynamically trigger the live physical validation loop!
+                    checkPendingScans();
+                }).catch(() => {
+                    cameraModal.style.display = 'none';
                 });
+            } else {
+                isProcessingScan = false;
             }
-        } catch(e) {
-            console.error("Invalid QR format:", e);
-            alert("This QR Code is not recognized by the Fox Hunting System.");
-        }
-    }, (error) => {}); // Ignore silent frame tracking fails
+        },
+        (errorMessage) => {} // ignore frame errors
+    ).then(() => {
+        isCameraActive = true;
+    }).catch((err) => {
+        console.error("Camera start error:", err);
+        alert("Camera could not be started. Please ensure you have allowed Camera Permissions in your browser settings!");
+        cameraModal.style.display = 'none';
+    });
 });
 
 closeCameraBtn.addEventListener('click', () => {
-    if (html5QrcodeScanner) {
-        html5QrcodeScanner.clear().then(() => {
+    if (html5QrCode && isCameraActive) {
+        html5QrCode.stop().then(() => {
+            isCameraActive = false;
+            cameraModal.style.display = 'none';
+        }).catch(() => {
             cameraModal.style.display = 'none';
         });
     } else {
