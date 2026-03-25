@@ -20,6 +20,9 @@ let participants = {};
 let isAdmin = false;
 let myId = crypto.randomUUID(); // Serverless unique identifier
 
+let foxIdScanned = new URLSearchParams(window.location.search).get("fox");
+let allDiscoveries = [];
+
 // Map variables
 let map = null;
 let userMarker = null;
@@ -126,6 +129,49 @@ function drawMap() {
     }
 }
 
+function showModal(title, body) {
+    document.getElementById('modalTitle').innerText = title;
+    document.getElementById('modalBody').innerText = body;
+    document.getElementById('discoveryModal').style.display = 'flex';
+}
+
+async function checkPendingScans() {
+    if (!foxIdScanned || !currentCoords || isAdmin || allFoxes.length === 0) return;
+    
+    const targetFoxId = foxIdScanned; 
+    const alreadyDiscovered = allDiscoveries.some(d => d.playerId === myId && d.foxId === targetFoxId);
+    if (alreadyDiscovered) {
+        showModal("Already Discovered", `You have already hunted Fox ${targetFoxId}!`);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        foxIdScanned = null;
+        return;
+    }
+
+    let minD = Infinity;
+    allFoxes.forEach(f => {
+        const d = calculateDistance(currentCoords.lat, currentCoords.lng, f.lat, f.lng);
+        if (d < minD) minD = d;
+    });
+
+    if (minD > 20) {
+        showModal("Too Far!", `You must be physically within 20 meters of the GPS target to claim Fox ${targetFoxId}. You are ${Math.round(minD)}m away.`);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        foxIdScanned = null;
+    } else {
+        foxIdScanned = null; 
+        try {
+            await db.collection('discoveries').add({
+                playerName: playerNameInput.value.trim() || 'Operative',
+                playerId: myId,
+                foxId: targetFoxId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showModal("🦊 Fox Discovered!", `Incredible! You have successfully hunted and claimed Fox ${targetFoxId}!`);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } catch(e) { console.error("Error saving discovery", e); }
+    }
+}
+
 function updateStudentUI() {
     if (currentCoords) {
         coordsDisplay.innerText = `GPS: ${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}`;
@@ -172,6 +218,10 @@ function updateStudentUI() {
         statusIndicator.className = 'status-pill waiting';
         statusText.innerText = 'Awaiting Target Coordinates...';
         if (window.foxLayerGroup && map) { map.removeLayer(window.foxLayerGroup); window.foxLayerGroup = null; }
+    }
+    
+    if (!isAdmin) {
+        checkPendingScans();
     }
 }
 
@@ -245,6 +295,43 @@ function renderAdminParticipants() {
     });
 }
 
+function renderAdminDiscoveries() {
+    const list = document.getElementById('adminDiscoveriesList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    if (allDiscoveries.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted);">No foxes discovered yet.</p>';
+        return;
+    }
+    
+    allDiscoveries.forEach((d) => {
+        const item = document.createElement('div');
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        item.style.background = 'rgba(16, 185, 129, 0.15)';
+        item.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        item.style.padding = '0.5rem 1rem';
+        item.style.borderRadius = '8px';
+        item.style.marginBottom = '0.5rem';
+        
+        let timeStr = "Just now";
+        if (d.timestamp && typeof d.timestamp.toDate === 'function') {
+            timeStr = d.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        item.innerHTML = `
+            <div>
+                <strong style="color: #10b981;">${d.playerName}</strong>
+                <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 5px;">found Fox ${d.foxId}</span>
+            </div>
+            <span style="font-size: 0.8rem; color: #fff;">${timeStr}</span>
+        `;
+        list.appendChild(item);
+    });
+}
+
 // Global Firebase Listeners (Compat Architecture)
 db.collection('targets').onSnapshot((snapshot) => {
     console.log("Fetched live targets from Firestore:", snapshot.docs.length);
@@ -275,6 +362,17 @@ db.collection('players').onSnapshot((snapshot) => {
     if (isAdmin) renderAdminParticipants();
 }, (error) => console.error("Error fetching players:", error));
 
+db.collection('discoveries').onSnapshot((snapshot) => {
+    console.log("Fetched live discoveries:", snapshot.docs.length);
+    allDiscoveries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    allDiscoveries.sort((a, b) => {
+        const timeA = a.timestamp && typeof a.timestamp.toMillis === 'function' ? a.timestamp.toMillis() : Date.now();
+        const timeB = b.timestamp && typeof b.timestamp.toMillis === 'function' ? b.timestamp.toMillis() : Date.now();
+        return timeB - timeA;
+    });
+    if (isAdmin) renderAdminDiscoveries();
+    if (!isAdmin && currentCoords) checkPendingScans();
+}, (error) => console.error("Error fetching discoveries:", error));
 
 // App logic
 joinBtn.addEventListener('click', async () => {
@@ -289,6 +387,7 @@ joinBtn.addEventListener('click', async () => {
         adminView.style.display = 'flex';
         renderAdminTargets();
         renderAdminParticipants();
+        renderAdminDiscoveries();
     } else {
         isAdmin = false;
         gameView.style.display = 'block';

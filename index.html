@@ -81,6 +81,13 @@
       </div>
     </div>
 
+    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">Live QR Discoveries 🏆</h3>
+      <div id="adminDiscoveriesList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 250px; overflow-y: auto;">
+        <p style="color: var(--text-muted);">No foxes discovered yet.</p>
+      </div>
+    </div>
+
     <h3 style="margin-bottom: 1rem;">Active Operatives</h3>
     <div class="grid" id="participantsGrid">
       <p style="color: var(--text-muted);">No operatives active.</p>
@@ -92,6 +99,15 @@
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
   <!-- Firebase Firestore Compat -->
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
+  <!-- QR Discovery Modal -->
+  <div id="discoveryModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 1rem; backdrop-filter: blur(8px);">
+      <div class="glass-container" style="padding: 2.5rem; border-radius: 16px; max-width: 450px; text-align: center; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 15px 40px rgba(0,0,0,0.8);">
+          <h2 id="modalTitle" style="color: #fff; margin-bottom: 1rem; font-size: 2rem; background: linear-gradient(to right, #34d399, #10b981); background-clip: text; -webkit-background-clip: text; color: transparent;">Fox Found!</h2>
+          <p id="modalBody" style="color: var(--text-muted); margin-bottom: 2rem; font-size: 1.1rem; line-height: 1.5;">You successfully scanned the QR coordinate.</p>
+          <button onclick="document.getElementById('discoveryModal').style.display='none'" style="background: #10b981; color: white; display: inline-block; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">Claim Reward 🦊</button>
+      </div>
+  </div>
 
   <!-- Main Pure JS Application -->
   <script src="script.js"></script>
