@@ -23,7 +23,6 @@ let myId = crypto.randomUUID(); // Serverless unique identifier
 // Map variables
 let map = null;
 let userMarker = null;
-let pathLine = null;
 let allFoxes = []; 
 let lastBoundsUpdate = 0;
 const mapContainer = document.getElementById('mapContainer');
@@ -121,19 +120,9 @@ function drawMap() {
     });
 
     if (closestFox) {
-        if (!pathLine) {
-            pathLine = L.polyline([[currentCoords.lat, currentCoords.lng], [closestFox.lat, closestFox.lng]], {
-                color: '#3b82f6', weight: 4, dashArray: '8, 8', opacity: 0.8
-            }).addTo(map);
-        } else {
-            pathLine.setLatLngs([[currentCoords.lat, currentCoords.lng], [closestFox.lat, closestFox.lng]]);
-        }
         openGmapsBtn.onclick = () => {
             window.open(`https://www.google.com/maps/dir/?api=1&origin=${currentCoords.lat},${currentCoords.lng}&destination=${closestFox.lat},${closestFox.lng}&travelmode=walking`, '_blank');
         };
-    } else if (pathLine) {
-        pathLine.remove();
-        pathLine = null;
     }
 }
 
@@ -183,7 +172,6 @@ function updateStudentUI() {
         statusIndicator.className = 'status-pill waiting';
         statusText.innerText = 'Awaiting Target Coordinates...';
         if (window.foxLayerGroup && map) { map.removeLayer(window.foxLayerGroup); window.foxLayerGroup = null; }
-        if (pathLine) { pathLine.remove(); pathLine = null; }
     }
 }
 
