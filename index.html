@@ -84,10 +84,15 @@
     <div class="grid" id="participantsGrid">
       <p style="color: var(--text-muted);">No operatives active.</p>
     </div>
-  </div>
-
+  <!-- Leaflet Map -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <!-- Firebase Firestore Compat -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
+  <!-- Main Pure JS Application -->
   <script src="script.js"></script>
 </body>
 </html>

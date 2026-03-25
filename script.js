@@ -1,7 +1,24 @@
-const socket = io();
+// Firebase initialization via CDN Compat
+const firebaseConfig = {
+  apiKey: "AIzaSyD-xAFC1swwvPHp7x0zpq6EnFFr2bBkoK0",
+  authDomain: "fox-hunting-7a1cc.firebaseapp.com",
+  projectId: "fox-hunting-7a1cc",
+  storageBucket: "fox-hunting-7a1cc.firebasestorage.app",
+  messagingSenderId: "581227582102",
+  appId: "1:581227582102:web:423463c0069b52fd7c28b7"
+};
+
+console.log("Initializing Firebase Compat...");
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+console.log("Firebase initialized successfully.");
+
+const ADMIN_PASSWORD = 'fox'; 
+
 let currentCoords = null;
 let participants = {};
 let isAdmin = false;
+let myId = crypto.randomUUID(); // Serverless unique identifier
 
 // Map variables
 let map = null;
@@ -20,13 +37,11 @@ const joinBtn = document.getElementById('joinBtn');
 const playerNameInput = document.getElementById('playerName');
 const adminPasswordInput = document.getElementById('adminPassword');
 
-// Student UI elements
 const statusIndicator = document.getElementById('statusIndicator');
 const statusText = document.getElementById('statusText');
 const distanceVal = document.getElementById('distanceVal');
 const coordsDisplay = document.getElementById('coordsDisplay');
 
-// Admin UI elements
 const targetLatInput = document.getElementById('targetLat');
 const targetLngInput = document.getElementById('targetLng');
 const setTargetBtn = document.getElementById('setTargetBtn');
@@ -54,7 +69,6 @@ function fitMapBounds() {
         if (!currentCoords || allFoxes.length === 0) return;
         let boundsPath = [[currentCoords.lat, currentCoords.lng]];
         allFoxes.forEach(f => boundsPath.push([f.lat, f.lng]));
-        
         const bounds = L.latLngBounds(boundsPath);
         map.fitBounds(bounds, { padding: [60, 60], maxZoom: 18, animate: true });
         lastBoundsUpdate = now;
@@ -67,7 +81,7 @@ function drawMap() {
     if (!map) {
         map = L.map('map', { zoomControl: false }).setView([currentCoords.lat, currentCoords.lng], 16);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
         }).addTo(map);
 
         userMarker = L.marker([currentCoords.lat, currentCoords.lng], {
@@ -83,7 +97,6 @@ function drawMap() {
         fitMapBounds();
     }
     
-    // Render all Foxes dynamically
     if (window.foxLayerGroup) {
         map.removeLayer(window.foxLayerGroup);
     }
@@ -102,7 +115,6 @@ function drawMap() {
         });
         L.marker([foxCoord.lat, foxCoord.lng], {icon: foxIcon}).addTo(window.foxLayerGroup);
         
-        // Find closest fox for drawing the line
         const d = calculateDistance(currentCoords.lat, currentCoords.lng, foxCoord.lat, foxCoord.lng);
         if (d < minD) { minD = d; closestFox = foxCoord; }
     });
@@ -115,7 +127,6 @@ function drawMap() {
         } else {
             pathLine.setLatLngs([[currentCoords.lat, currentCoords.lng], [closestFox.lat, closestFox.lng]]);
         }
-        
         openGmapsBtn.onclick = () => {
             window.open(`https://www.google.com/maps/dir/?api=1&origin=${currentCoords.lat},${currentCoords.lng}&destination=${closestFox.lat},${closestFox.lng}&travelmode=walking`, '_blank');
         };
@@ -125,7 +136,6 @@ function drawMap() {
     }
 }
 
-// Update Student View
 function updateStudentUI() {
     if (currentCoords) {
         coordsDisplay.innerText = `GPS: ${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}`;
@@ -162,7 +172,6 @@ function updateStudentUI() {
             statusText.innerText = 'FOX FOUND 🦊';
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         }
-        
         drawMap();
     } else if (allFoxes.length > 0) {
         distanceVal.innerText = '--';
@@ -198,12 +207,19 @@ function renderAdminTargets() {
         
         item.innerHTML = `
             <div>
-                <strong style="color: #fff;">Fox Target ${f.id || idx+1}</strong>
+                <strong style="color: #fff;">Fox Target ${idx+1}</strong>
                 <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 10px;">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</span>
             </div>
-            <button onclick="disableTarget(${f.id})" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); box-shadow: none;">Disable</button>
+            <button id="disable-btn-${f.id}" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); box-shadow: none;">Disable</button>
         `;
         list.appendChild(item);
+        
+        document.getElementById(`disable-btn-${f.id}`).addEventListener('click', async () => {
+            try {
+                await db.collection('targets').doc(f.id).delete();
+                console.log("Target disabled:", f.id);
+            } catch(e) { console.error("Error disabling target", e); }
+        });
     });
 }
 
@@ -240,77 +256,112 @@ function renderAdminParticipants() {
     });
 }
 
-// Global function to attach to dynamic buttons
-window.disableTarget = function(id) {
-    socket.emit('disableTarget', id);
-};
-
-joinBtn.addEventListener('click', () => {
-    const name = playerNameInput.value.trim();
-    const password = adminPasswordInput.value.trim();
-    if (!name && !password) return alert('Please enter your name (Student) or password (Admin).');
-    socket.emit('login', { name, password });
-});
-
-setTargetBtn.addEventListener('click', () => {
-    const lat = parseFloat(targetLatInput.value);
-    const lng = parseFloat(targetLngInput.value);
-    if (isNaN(lat) || isNaN(lng)) return alert('Please enter valid coordinates');
-    
-    socket.emit('setTarget', { lat, lng });
-    alert('Target coordinates broadcasted!');
-});
-
-socket.on('loginResponse', (res) => {
-    if (res.success) {
-        loginView.style.display = 'none';
-        
-        if (res.role === 'admin') {
-            isAdmin = true;
-            adminView.style.display = 'flex';
-        } else {
-            isAdmin = false;
-            gameView.style.display = 'block';
-
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition((position) => {
-                    currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
-                    socket.emit('updateLocation', currentCoords);
-                    updateStudentUI();
-                }, (err) => {
-                    console.error(err);
-                    coordsDisplay.innerText = "GPS access denied or unavailable.";
-                }, { enableHighAccuracy: true });
-            } else {
-                coordsDisplay.innerText = "Geolocation not supported by browser.";
-            }
-        }
-    } else {
-        alert(res.message || 'Login failed');
-    }
-});
-
-socket.on('targetsUpdate', (targetsArray) => {
-    allFoxes = targetsArray;
+// Global Firebase Listeners (Compat Architecture)
+db.collection('targets').onSnapshot((snapshot) => {
+    console.log("Fetched live targets from Firestore:", snapshot.docs.length);
+    allFoxes = snapshot.docs.map(doc => ({ id: doc.id, lat: doc.data().lat, lng: doc.data().lng }));
     if (isAdmin) {
         renderAdminTargets();
         renderAdminParticipants();
     } else {
         updateStudentUI();
     }
-});
+}, (error) => console.error("Error fetching targets:", error));
 
-socket.on('participantListUpdate', (list) => {
-    if (!isAdmin) return;
+db.collection('players').onSnapshot((snapshot) => {
+    console.log("Fetched live dynamic players from Firestore:", snapshot.docs.length);
     participants = {};
-    list.forEach(p => participants[p.id] = p);
-    renderAdminParticipants();
+    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+    
+    snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.updatedAt && typeof data.updatedAt.toMillis === 'function') {
+            if (data.updatedAt.toMillis() > tenMinutesAgo) {
+                participants[docSnap.id] = data;
+            }
+        } else {
+            participants[docSnap.id] = data; // Keep newly joined without server time sync yet
+        }
+    });
+    if (isAdmin) renderAdminParticipants();
+}, (error) => console.error("Error fetching players:", error));
+
+
+// App logic
+joinBtn.addEventListener('click', async () => {
+    const name = playerNameInput.value.trim();
+    const password = adminPasswordInput.value.trim();
+    if (!name && !password) return alert('Please enter your name (Student) or password (Admin).');
+    
+    loginView.style.display = 'none';
+        
+    if (password === ADMIN_PASSWORD) {
+        isAdmin = true;
+        adminView.style.display = 'flex';
+        renderAdminTargets();
+        renderAdminParticipants();
+    } else {
+        isAdmin = false;
+        gameView.style.display = 'block';
+
+        try {
+            await db.collection('players').doc(myId).set({ 
+                name, lat: null, lng: null, updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+            });
+            console.log("Player joined successfully and logged to Firestore.");
+        } catch(e) { console.error("Error joining game:", e); }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(async (position) => {
+                currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
+                
+                try {
+                    await db.collection('players').doc(myId).set({ 
+                        name, 
+                        lat: currentCoords.lat, 
+                        lng: currentCoords.lng,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+                    }, { merge: true });
+                    console.log("Location successfully pushed to Firestore.");
+                } catch(e) { console.error("Error pushing location:", e); }
+                
+                updateStudentUI();
+            }, (err) => {
+                console.error("GPS Tracking Error:", err);
+                coordsDisplay.innerText = "GPS access denied or unavailable.";
+            }, { enableHighAccuracy: true });
+            
+            setInterval(async () => {
+                try {
+                    if (currentCoords) {
+                        await db.collection('players').doc(myId).set({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                    }
+                } catch(e) {}
+            }, 10000); // 10s keep-alive 
+            
+        } else {
+            coordsDisplay.innerText = "Geolocation not supported.";
+        }
+
+        window.addEventListener('beforeunload', () => {
+             db.collection('players').doc(myId).delete();
+        });
+    }
 });
 
-socket.on('participantLocationUpdate', (data) => {
-    if (!isAdmin) return;
-    if (participants[data.id]) {
-        participants[data.id] = data;
-        renderAdminParticipants();
+setTargetBtn.addEventListener('click', async () => {
+    const lat = parseFloat(targetLatInput.value);
+    const lng = parseFloat(targetLngInput.value);
+    if (isNaN(lat) || isNaN(lng)) return alert('Please enter valid coordinates');
+    
+    try {
+        await db.collection('targets').add({ lat, lng, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+        console.log("New Target pushed to Firestore globally!");
+        alert('Fox coordinate broadcasted to all active players!');
+        targetLatInput.value = '';
+        targetLngInput.value = '';
+    } catch (e) {
+        console.error("Failed to commit target to DB:", e);
+        alert('Failed to set target, please check console.');
     }
 });
