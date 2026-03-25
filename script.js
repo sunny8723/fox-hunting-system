@@ -151,7 +151,7 @@ async function checkPendingScans() {
     foxIdScanned = null; // Clear to prevent loops
     
     const foxIdx = allFoxes.findIndex(f => f.id === targetFoxId);
-    const displayFox = foxIdx !== -1 ? `Fox Target ${foxIdx + 1}` : `the Target`;
+    const displayFox = foxIdx !== -1 ? `Fox ${foxIdx + 1}` : `the Target`;
     
     const alreadyDiscovered = allDiscoveries.some(d => d.playerId === myId && d.foxId === targetFoxId);
     if (alreadyDiscovered) {
@@ -188,7 +188,7 @@ async function checkPendingScans() {
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
             console.log("Discovery successfully written to Firestore!");
-            showModal("🎉 Target Discovered!", `Incredible! You have successfully hunted and claimed ${displayFox}!`, false, "Back to Hunting 🦊");
+            showModal("🎉 Target Discovered!", `Incredible! You have successfully found ${displayFox}!`, false, "Back to Hunting 🦊");
             window.history.replaceState({}, document.title, window.location.pathname);
         } catch(e) { 
             console.error("Firestore Error saving discovery:", e); 
@@ -394,7 +394,7 @@ function renderAdminDiscoveries() {
         let foxDisplay = `a Target`;
         const matchedIndex = allFoxes.findIndex(f => f.id === d.foxId);
         if (matchedIndex !== -1) {
-            foxDisplay = `Fox Target ${matchedIndex + 1}`;
+            foxDisplay = `Fox ${matchedIndex + 1}`;
         }
         
         item.innerHTML = `
