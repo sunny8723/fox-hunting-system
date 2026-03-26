@@ -404,48 +404,6 @@ function renderAdminParticipants() {
     });
 }
 
-function renderAdminDiscoveries() {
-    const list = document.getElementById('adminDiscoveriesList');
-    if (!list) return;
-    list.innerHTML = '';
-    
-    if (allDiscoveries.length === 0) {
-        list.innerHTML = '<p style="color: var(--text-muted);">No foxes discovered yet.</p>';
-        return;
-    }
-    
-    allDiscoveries.forEach((d) => {
-        const item = document.createElement('div');
-        item.style.display = 'flex';
-        item.style.justifyContent = 'space-between';
-        item.style.alignItems = 'center';
-        item.style.background = 'rgba(16, 185, 129, 0.15)';
-        item.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-        item.style.padding = '0.5rem 1rem';
-        item.style.borderRadius = '8px';
-        item.style.marginBottom = '0.5rem';
-        
-        let timeStr = "Just now";
-        if (d.timestamp && typeof d.timestamp.toDate === 'function') {
-            timeStr = d.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        }
-
-        let foxDisplay = `a Target`;
-        const matchedIndex = allFoxes.findIndex(f => f.id === d.foxId);
-        if (matchedIndex !== -1) {
-            foxDisplay = `Fox ${matchedIndex + 1}`;
-        }
-        
-        item.innerHTML = `
-            <div>
-                <strong style="color: #10b981;">${d.playerName}</strong>
-                <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 5px;">found ${foxDisplay}</span>
-            </div>
-            <span style="font-size: 0.8rem; color: #fff;">${timeStr}</span>
-        `;
-        list.appendChild(item);
-    });
-}
 
 // Global Firebase Listeners (Compat Architecture)
 db.collection('targets').onSnapshot((snapshot) => {
@@ -499,7 +457,6 @@ db.collection('discoveries').onSnapshot((snapshot) => {
         const timeB = b.timestamp && typeof b.timestamp.toMillis === 'function' ? b.timestamp.toMillis() : Date.now();
         return timeB - timeA;
     });
-    if (isAdmin) renderAdminDiscoveries();
     if (!isAdmin && currentCoords) checkPendingScans();
     
     isInitialDiscoveriesLoad = false;
@@ -518,7 +475,6 @@ joinBtn.addEventListener('click', async () => {
         adminView.style.display = 'flex';
         renderAdminTargets();
         renderAdminParticipants();
-        renderAdminDiscoveries();
     } else {
         isAdmin = false;
         gameView.style.display = 'block';
