@@ -174,7 +174,10 @@ function showToast(message, type="info") {
 }
 
 async function checkPendingScans() {
-    if (!foxIdScanned || !currentCoords || isAdmin || allFoxes.length === 0) return;
+    if (!foxIdScanned || !currentCoords || isAdmin || allFoxes.length === 0) {
+        if (!currentCoords && foxIdScanned) showToast("Awaiting GPS lock... Please wait a moment.", "error");
+        return;
+    }
     
     console.log("Analyzing scanned QR code for Fox ID:", foxIdScanned);
     const targetFoxId = foxIdScanned; 
@@ -187,6 +190,7 @@ async function checkPendingScans() {
     if (alreadyDiscovered) {
         console.log("Firestore Check: Player already claimed this fox.");
         showModal("Already Discovered", `You have already hunted ${displayFox}!`, false, "Okay");
+        showToast(`You already claimed ${displayFox}!`, "error");
         window.history.replaceState({}, document.title, window.location.pathname);
         return;
     }
@@ -195,6 +199,7 @@ async function checkPendingScans() {
     if (!foxTarget) {
         console.error("Validation Failed: Target Fox ID not found in live active foxes.");
         showModal("Target Missing", "This Fox does not exist or was disabled by Admin.", false, "Okay");
+        showToast("Invalid Target Scanned", "error");
         window.history.replaceState({}, document.title, window.location.pathname);
         return;
     }
@@ -205,9 +210,11 @@ async function checkPendingScans() {
     if (dist > 20) {
         console.log("Validation Failed: Too far from target.");
         showModal("Too Far!", `You must be physically within 20 meters of the specific GPS target to claim ${displayFox}. You are ${Math.round(dist)}m away.`, false, "Keep Hunting 🧭");
+        showToast(`You are ${Math.round(dist)}m away from ${displayFox}.`, "error");
         window.history.replaceState({}, document.title, window.location.pathname);
     } else {
         console.log("Validation Passed! Writing discovery to Firestore...");
+        showToast("Validating distance...", "info");
         try {
             await db.collection('discoveries').add({
                 playerName: playerNameInput.value.trim() || 'Operative',
@@ -223,6 +230,7 @@ async function checkPendingScans() {
             window.history.replaceState({}, document.title, window.location.pathname);
         } catch(e) { 
             console.error("Firestore Error saving discovery:", e); 
+            showToast("Database Error: Failed to save discovery. Please check connection.", "error");
             alert("Database Error: Failed to save discovery. Please check connection.");
         }
     }
@@ -611,14 +619,22 @@ nativeCameraScanner.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     const originalText = scanQrBtn.innerText;
     scanQrBtn.innerText = "Analyzing... ⏳";
+    showToast("Analyzing photo... please hold on.", "info");
     
     if (!html5QrCode) {
         html5QrCode = new Html5Qrcode("reader");
     }
 
     try {
-        const decodedText = await html5QrCode.scanFile(file, true);
+        // Prevent canvas rendering (false) to avoid out-of-memory hangs on 4k phone cameras
+        const scanPromise = html5QrCode.scanFile(file, false);
+        // Force a 10-second timeout so the UI never gets stuck on "Analyzing..." permanently
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000));
+        
+        const decodedText = await Promise.race([scanPromise, timeoutPromise]);
+        
         console.log("OS Decoded QR payload:", decodedText);
+        showToast("QR Code recognized!", "success");
         
         let extractedId = null;
         if (decodedText.includes("fox=")) {
@@ -636,11 +652,18 @@ nativeCameraScanner.addEventListener('change', async (e) => {
             foxIdScanned = extractedId;
             checkPendingScans();
         } else {
+            showToast("QR Error: We couldn't extract a valid ID.", "error");
             alert("QR Error: We couldn't extract a valid ID from that image.");
         }
     } catch(err) {
         console.error("QR Decoding Engine Error:", err);
-        showModal("Scanning Error 📸", "We could not find a distinct QR code in that photo. Please get closer and make sure the QR code is centered and bright!", false, "Try Again");
+        if (err.message === "Timeout") {
+            showToast("Analyzing took too long. Please try a clearer or smaller photo.", "error");
+            showModal("Scanner Timeout 📸", "The image was too large or took too long to analyze. Try moving closer to the QR code and taking a clearer photo!", false, "Try Again");
+        } else {
+            showToast("No distinct QR code found. Try again.", "error");
+            showModal("Scanning Error 📸", "We could not find a distinct QR code in that photo. Please get closer and make sure the QR code is centered, bright, and not blurry!", false, "Try Again");
+        }
     }
     
     scanQrBtn.innerText = originalText;
