@@ -143,6 +143,36 @@ function showModal(title, body, isHtml = false, btnText = "Claim Reward 🦊") {
     document.getElementById('discoveryModal').style.display = 'flex';
 }
 
+function showToast(message, type="info") {
+    const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) return;
+    const toast = document.createElement('div');
+    toast.style.padding = '1rem 1.5rem';
+    toast.style.borderRadius = '8px';
+    toast.style.color = '#fff';
+    toast.style.fontWeight = 'bold';
+    toast.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+    toast.style.transition = 'opacity 0.5s ease-in-out';
+    toast.style.opacity = '1';
+    toast.style.fontSize = '0.9rem';
+    
+    if (type === 'success') {
+        toast.style.background = 'linear-gradient(to right, #10b981, #059669)';
+    } else if (type === 'error') {
+        toast.style.background = 'linear-gradient(to right, #ef4444, #dc2626)';
+    } else {
+        toast.style.background = 'linear-gradient(to right, #3b82f6, #2563eb)';
+    }
+    
+    toast.innerText = message;
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
+}
+
 async function checkPendingScans() {
     if (!foxIdScanned || !currentCoords || isAdmin || allFoxes.length === 0) return;
     
@@ -189,6 +219,7 @@ async function checkPendingScans() {
             });
             console.log("Discovery successfully written to Firestore!");
             showModal("🎉 Target Discovered!", `Incredible! You have successfully found ${displayFox}!`, false, "Back to Hunting 🦊");
+            showToast(`You have found ${displayFox}!`, "success");
             window.history.replaceState({}, document.title, window.location.pathname);
         } catch(e) { 
             console.error("Firestore Error saving discovery:", e); 
@@ -438,8 +469,22 @@ db.collection('players').onSnapshot((snapshot) => {
     if (isAdmin) renderAdminParticipants();
 }, (error) => console.error("Error fetching players:", error));
 
+let isInitialDiscoveriesLoad = true;
+
 db.collection('discoveries').onSnapshot((snapshot) => {
     console.log("Fetched live discoveries:", snapshot.docs.length);
+    
+    if (isAdmin && !isInitialDiscoveriesLoad) {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+                const data = change.doc.data();
+                const matchedIndex = allFoxes.findIndex(f => f.id === data.foxId);
+                const foxDisplay = matchedIndex !== -1 ? `Fox ${matchedIndex + 1}` : `a Target`;
+                showToast(`🏆 ${data.playerName || 'An Operative'} just found ${foxDisplay}!`, 'success');
+            }
+        });
+    }
+
     allDiscoveries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     allDiscoveries.sort((a, b) => {
         const timeA = a.timestamp && typeof a.timestamp.toMillis === 'function' ? a.timestamp.toMillis() : Date.now();
@@ -448,6 +493,8 @@ db.collection('discoveries').onSnapshot((snapshot) => {
     });
     if (isAdmin) renderAdminDiscoveries();
     if (!isAdmin && currentCoords) checkPendingScans();
+    
+    isInitialDiscoveriesLoad = false;
 }, (error) => console.error("Error fetching discoveries:", error));
 
 // App logic
