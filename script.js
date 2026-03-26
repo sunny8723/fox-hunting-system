@@ -71,17 +71,30 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 function fitMapBounds() {
     const now = Date.now();
     if (now - lastBoundsUpdate > 5000) {
-        if (!currentCoords || allFoxes.length === 0) return;
+        const activeFoxes = getActiveFoxesForMe();
+        if (!currentCoords || activeFoxes.length === 0) return;
         let boundsPath = [[currentCoords.lat, currentCoords.lng]];
-        allFoxes.forEach(f => boundsPath.push([f.lat, f.lng]));
+        activeFoxes.forEach(f => boundsPath.push([f.lat, f.lng]));
         const bounds = L.latLngBounds(boundsPath);
         map.fitBounds(bounds, { padding: [60, 60], maxZoom: 18, animate: true });
         lastBoundsUpdate = now;
     }
 }
 
+function getActiveFoxesForMe() {
+    const pName = playerNameInput.value.trim().toLowerCase();
+    if (!pName && !myId) return allFoxes;
+    
+    const myClaimedFoxIds = allDiscoveries
+        .filter(d => d.playerId === myId || (d.playerName && d.playerName.toLowerCase() === pName))
+        .map(d => d.foxId);
+        
+    return allFoxes.filter(f => !myClaimedFoxIds.includes(f.id));
+}
+
 function drawMap() {
-    if (!currentCoords || allFoxes.length === 0) return;
+    const activeFoxes = getActiveFoxesForMe();
+    if (!currentCoords || activeFoxes.length === 0) return;
 
     if (!map) {
         map = L.map('map', { zoomControl: false }).setView([currentCoords.lat, currentCoords.lng], 16);
@@ -110,7 +123,7 @@ function drawMap() {
     let minD = Infinity;
     let closestFox = null;
 
-    allFoxes.forEach((foxCoord) => {
+    activeFoxes.forEach((foxCoord) => {
         const foxSize = 36;
         const foxIcon = L.divIcon({ 
             className: 'custom-div-icon', 
@@ -186,7 +199,12 @@ async function checkPendingScans() {
     const foxIdx = allFoxes.findIndex(f => f.id === targetFoxId);
     const displayFox = foxIdx !== -1 ? `Fox ${foxIdx + 1}` : `the Target`;
     
-    const alreadyDiscovered = allDiscoveries.some(d => d.playerId === myId && d.foxId === targetFoxId);
+    const pName = playerNameInput.value.trim().toLowerCase();
+    const alreadyDiscovered = allDiscoveries.some(d => 
+        (d.playerId === myId || (d.playerName && d.playerName.toLowerCase() === pName)) 
+        && d.foxId === targetFoxId
+    );
+    
     if (alreadyDiscovered) {
         console.log("Firestore Check: Player already claimed this fox.");
         showModal("Already Discovered", `You have already hunted ${displayFox}!`, false, "Okay");
@@ -244,9 +262,11 @@ function updateStudentUI() {
         coordsDisplay.innerText = `GPS: ${currentCoords.lat.toFixed(7)}, ${currentCoords.lng.toFixed(7)}`;
     }
     
-    if (allFoxes.length > 0 && currentCoords) {
+    const activeFoxes = getActiveFoxesForMe();
+    
+    if (activeFoxes.length > 0 && currentCoords) {
         let minD = Infinity;
-        allFoxes.forEach(f => {
+        activeFoxes.forEach(f => {
             const d = calculateDistance(currentCoords.lat, currentCoords.lng, f.lat, f.lng);
             if (d < minD) minD = d;
         });
@@ -276,6 +296,14 @@ function updateStudentUI() {
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         }
         drawMap();
+    } else if (allFoxes.length > 0 && getActiveFoxesForMe().length === 0) {
+        distanceVal.innerText = '🏆';
+        document.querySelector('.distance-unit').innerText = 'Champion';
+        statusIndicator.className = 'status-pill waiting';
+        statusIndicator.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+        statusIndicator.style.color = '#10b981';
+        statusText.innerText = 'All Foxes Discovered! 🦊🎉';
+        if (window.foxLayerGroup && map) { map.removeLayer(window.foxLayerGroup); window.foxLayerGroup = null; }
     } else if (allFoxes.length > 0) {
         distanceVal.innerText = '--';
         statusIndicator.className = 'status-pill waiting';
