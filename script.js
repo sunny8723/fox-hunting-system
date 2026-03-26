@@ -613,10 +613,40 @@ enableGpsBtn.addEventListener('click', () => {
 
 let html5QrCode = null;
 
+function resizeImage(file, maxWidth = 800) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (!blob) return reject(new Error("Canvas toBlob failed"));
+                    resolve(new File([blob], file.name || "scanned.jpg", { type: 'image/jpeg' }));
+                }, 'image/jpeg', 0.8);
+            };
+            img.onerror = reject;
+            img.src = event.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
 nativeCameraScanner.addEventListener('change', async (e) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
-    const file = e.target.files[0];
+    let file = e.target.files[0];
     const originalText = scanQrBtn.innerText;
     scanQrBtn.innerText = "Analyzing... ⏳";
     showToast("Analyzing photo... please hold on.", "info");
@@ -626,6 +656,12 @@ nativeCameraScanner.addEventListener('change', async (e) => {
     }
 
     try {
+        // High resolution phone cameras crash the library. We must resize first!
+        showToast("Compressing high-res photo...", "info");
+        console.log("Original File Size:", file.size);
+        file = await resizeImage(file, 800);
+        console.log("Resized File Size:", file.size);
+
         // Prevent canvas rendering (false) to avoid out-of-memory hangs on 4k phone cameras
         const scanPromise = html5QrCode.scanFile(file, false);
         // Force a 10-second timeout so the UI never gets stuck on "Analyzing..." permanently
