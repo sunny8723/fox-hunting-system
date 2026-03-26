@@ -213,17 +213,20 @@ async function checkPendingScans() {
         showToast(`You are ${Math.round(dist)}m away from ${displayFox}.`, "error");
         window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-        console.log("Validation Passed! Writing discovery to Firestore...");
+        console.log("Validation Passed! Preparing to write discovery to Firestore...");
         showToast("Validating distance...", "info");
         try {
-            await db.collection('discoveries').add({
+            const docData = {
                 playerName: playerNameInput.value.trim() || 'Operative',
-                playerId: myId,
+                playerId: myId, // Kept to prevent duplicate scans mathematically
                 foxId: targetFoxId,
-                lat: currentCoords.lat,
-                lng: currentCoords.lng,
+                foxName: displayFox,
+                latitude: currentCoords.lat,
+                longitude: currentCoords.lng,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            };
+            console.log("Saving new scan to Firestore:", docData);
+            await db.collection('discoveries').add(docData);
             console.log("Discovery successfully written to Firestore!");
             showModal("🎉 Target Discovered!", `Incredible! You have successfully found ${displayFox}!`, false, "Back to Hunting 🦊");
             showToast(`You have found ${displayFox}!`, "success");
@@ -288,6 +291,54 @@ function updateStudentUI() {
         checkPendingScans();
     }
 }
+
+function renderAdminDiscoveries() {
+    const list = document.getElementById('adminDiscoveriesList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    if (allDiscoveries.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted);">No foxes discovered yet.</p>';
+        return;
+    }
+    
+    allDiscoveries.forEach((d) => {
+        const card = document.createElement('div');
+        card.style.background = 'rgba(16, 185, 129, 0.1)';
+        card.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        card.style.padding = '1rem';
+        card.style.borderRadius = '8px';
+        card.style.fontFamily = 'monospace';
+        card.style.fontSize = '0.95rem';
+        card.style.lineHeight = '1.6';
+        card.style.color = '#e2e8f0';
+        
+        let timeStr = "Processing...";
+        if (d.timestamp && typeof d.timestamp.toDate === 'function') {
+            timeStr = d.timestamp.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true});
+        }
+        
+        // Ensure backwards compatibility with old schema for existing documents
+        const lat = d.latitude || d.lat || 0;
+        const lng = d.longitude || d.lng || 0;
+        let foxN = d.foxName;
+        
+        if (!foxN) {
+            const matchedIndex = allFoxes.findIndex(f => f.id === d.foxId);
+            foxN = matchedIndex !== -1 ? `Fox Target ${matchedIndex + 1}` : `A Target`;
+        }
+
+        card.innerHTML = `
+            <div style="font-weight: bold; color: #10b981; font-size: 1.1rem; margin-bottom: 8px;">🎉 Fox Captured!</div>
+            <div><span style="color: #94a3b8; width: 80px; display: inline-block;">Player:</span> <strong style="color: #fff;">${d.playerName}</strong></div>
+            <div><span style="color: #94a3b8; width: 80px; display: inline-block;">Fox:</span> <strong style="color: #60a5fa;">${foxN}</strong></div>
+            <div><span style="color: #94a3b8; width: 80px; display: inline-block;">Location:</span> ${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+            <div><span style="color: #94a3b8; width: 80px; display: inline-block;">Time:</span> ${timeStr}</div>
+        `;
+        list.appendChild(card);
+    });
+}
+
 
 function renderAdminTargets() {
     const list = document.getElementById('adminTargetsList');
@@ -438,7 +489,7 @@ db.collection('players').onSnapshot((snapshot) => {
 let isInitialDiscoveriesLoad = true;
 
 db.collection('discoveries').onSnapshot((snapshot) => {
-    console.log("Fetched live discoveries:", snapshot.docs.length);
+    console.log("Admin received new discovery update. Total docs:", snapshot.docs.length);
     
     if (isAdmin && !isInitialDiscoveriesLoad) {
         snapshot.docChanges().forEach((change) => {
@@ -457,6 +508,7 @@ db.collection('discoveries').onSnapshot((snapshot) => {
         const timeB = b.timestamp && typeof b.timestamp.toMillis === 'function' ? b.timestamp.toMillis() : Date.now();
         return timeB - timeA;
     });
+    if (isAdmin) renderAdminDiscoveries();
     if (!isAdmin && currentCoords) checkPendingScans();
     
     isInitialDiscoveriesLoad = false;
@@ -475,6 +527,7 @@ joinBtn.addEventListener('click', async () => {
         adminView.style.display = 'flex';
         renderAdminTargets();
         renderAdminParticipants();
+        renderAdminDiscoveries();
     } else {
         isAdmin = false;
         gameView.style.display = 'block';
