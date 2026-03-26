@@ -519,13 +519,22 @@ let isInitialDiscoveriesLoad = true;
 db.collection('discoveries').onSnapshot((snapshot) => {
     console.log("Admin received new discovery update. Total docs:", snapshot.docs.length);
     
-    if (isAdmin && !isInitialDiscoveriesLoad) {
+    if (!isInitialDiscoveriesLoad) {
         snapshot.docChanges().forEach((change) => {
             if (change.type === "added") {
                 const data = change.doc.data();
-                const matchedIndex = allFoxes.findIndex(f => f.id === data.foxId);
-                const foxDisplay = matchedIndex !== -1 ? `Fox ${matchedIndex + 1}` : `a Target`;
-                showToast(`🏆 ${data.playerName || 'An Operative'} just found ${foxDisplay}!`, 'success');
+                
+                // Admins see all toasts. Students see toasts of rivals, but omit their own since checkPendingScans already shows them a huge Modal.
+                if (data.playerId !== myId || isAdmin) {
+                    const matchedIndex = allFoxes.findIndex(f => f.id === data.foxId);
+                    let foxDisplay = `a Target`;
+                    if (data.foxName) {
+                         foxDisplay = data.foxName;
+                    } else if (matchedIndex !== -1) {
+                         foxDisplay = `Fox Target ${matchedIndex + 1}`;
+                    }
+                    showToast(`🏆 ${data.playerName || 'An Operative'} just found ${foxDisplay}!`, 'success');
+                }
             }
         });
     }
