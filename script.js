@@ -1,7 +1,45 @@
 // Foxhunt Client-Side Logic (Student Only)
 
-let socket = null;
 let currentToken = null;
+let syncInterval = null;
+
+async function fetchSyncState() {
+    if (!currentToken) return;
+    try {
+        const res = await fetch('/api/sync', {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (res.ok) {
+            const state = await res.json();
+            
+            // Check for new discoveries to show toast
+            if (allDiscoveries.length < state.discoveries.length && allDiscoveries.length > 0) {
+                const newDiscs = state.discoveries.filter(d => !allDiscoveries.find(old => old.id === d.id));
+                newDiscs.forEach(d => {
+                   if (d.playerId !== myId) {
+                       showToast(`🏆 ${d.playerName} just found ${d.foxName}!`, "success");
+                   } 
+                });
+            }
+            
+            handleStateSync(state);
+        }
+    } catch(e) { console.error('Sync Error', e); }
+}
+
+async function updateLocationAPI(coords) {
+    if (!currentToken) return;
+    try {
+        await fetch('/api/update_location', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify(coords)
+        });
+    } catch(e) {}
+}
 
 let currentCoords = null;
 let myId = null;
@@ -258,29 +296,10 @@ joinBtn.addEventListener('click', async () => {
 
         loginView.style.display = 'none';
 
-        // Connect Socket.io
-        socket = io({
-            auth: {
-                token: currentToken
-            }
-        });
-
-        socket.on('connect', () => console.log('Socket Connected!'));
-        socket.on('sync_state', handleStateSync);
-        socket.on('global_toast', (data) => showToast(data.msg, data.type));
-        socket.on('error_msg', (msg) => showToast(msg, 'error'));
-
-        socket.on('scan_result', (data) => {
-            if (data.success) {
-                showToast("Discovery Validated!", "success");
-                showModal("🎉 Target Discovered!", `Incredible! You have successfully found ${data.discovery.foxName}!`, false, "Back to Hunting 🦊");
-                window.history.replaceState({}, document.title, window.location.pathname);
-            } else {
-                showToast(data.msg, "error");
-                showModal("Scan Failed", data.msg, false, "Keep Hunting 🧭");
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-        });
+        // Connect HTTP Polling
+        fetchSyncState();
+        if (syncInterval) clearInterval(syncInterval);
+        syncInterval = setInterval(fetchSyncState, 3000);
 
         gameView.style.display = 'block';
         console.log("Waiting for user to manually initialize GPS via explicit button click.");
@@ -308,13 +327,13 @@ enableGpsBtn.addEventListener('click', () => {
                 
                 currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
                 
-                if (socket) socket.emit('update_location', currentCoords);
+                updateLocationAPI(currentCoords);
                 updateStudentUI();
 
                 navigator.geolocation.watchPosition(
                     async (highPos) => {
                         currentCoords = { lat: highPos.coords.latitude, lng: highPos.coords.longitude };
-                        if (socket) socket.emit('update_location', currentCoords);
+                        updateLocationAPI(currentCoords);
                         updateStudentUI();
                     }, 
                     (err) => console.log("High accuracy tracker waiting:", err.message), 
@@ -350,8 +369,30 @@ async function checkPendingScans() {
 
     // Delegate validation and saving entirely to backend
     showToast("Validating distance with server...", "info");
-    if (socket) {
-        socket.emit('scan_target', { foxId: targetFoxId });
+    try {
+        const res = await fetch('/api/scan_target', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}` 
+            },
+            body: JSON.stringify({ foxId: targetFoxId })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast("Discovery Validated!", "success");
+            showModal("🎉 Target Discovered!", `Incredible! You have successfully found a target!`, false, "Back to Hunting 🦊");
+            window.history.replaceState({}, document.title, window.location.pathname);
+            fetchSyncState(); // Update UI immediately
+        } else {
+            showToast(data.msg || "Scan failed.", "error");
+            showModal("Scan Failed", data.msg || "An error occurred.", false, "Keep Hunting 🧭");
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    } catch(e) {
+        showToast("Server error during scan.", "error");
+        console.error(e);
     }
 }
 

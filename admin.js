@@ -1,7 +1,25 @@
 // Admin Logic Only (admin.js)
 
-let socket = null;
 let currentToken = null;
+let syncInterval = null;
+
+async function fetchSyncState() {
+    if (!currentToken) return;
+    try {
+        const res = await fetch('/api/sync', {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (res.ok) {
+            const state = await res.json();
+            
+            if (allDiscoveries.length < state.discoveries.length && allDiscoveries.length > 0) {
+                showToast("New Discovery Relayed!", "success");
+            }
+            
+            handleStateSync(state);
+        }
+    } catch(e) { console.error('Sync Error', e); }
+}
 
 let participants = {};
 let allDiscoveries = [];
@@ -198,7 +216,17 @@ function renderAdminTargets() {
         });
         
         document.getElementById(`disable-btn-${f.id}`).addEventListener('click', async () => {
-            socket.emit('admin_delete_target', { foxId: f.id });
+            try {
+                await fetch('/api/admin_delete_target', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentToken}` 
+                    },
+                    body: JSON.stringify({ foxId: f.id })
+                });
+                fetchSyncState();
+            } catch(e) { console.error(e); }
         });
     });
 }
@@ -315,15 +343,10 @@ joinBtn.addEventListener('click', async () => {
         currentToken = data.token;
         loginView.style.display = 'none';
 
-        // Connect Socket.io
-        socket = io({
-            auth: { token: currentToken }
-        });
-
-        socket.on('connect', () => console.log('Admin Socket Connected!'));
-        socket.on('sync_state', handleStateSync);
-        socket.on('global_toast', (data) => showToast(data.msg, data.type));
-        socket.on('error_msg', (msg) => showToast(msg, 'error'));
+        // Connect HTTP Polling
+        fetchSyncState();
+        if (syncInterval) clearInterval(syncInterval);
+        syncInterval = setInterval(fetchSyncState, 3000);
 
         adminView.style.display = 'flex';
 
@@ -353,10 +376,22 @@ setTargetBtn.addEventListener('click', async () => {
     const lng = parseFloat(targetLngInput.value);
     if (isNaN(lat) || isNaN(lng)) return alert('Please enter valid coordinates');
     
-    if (socket) {
-        socket.emit('admin_set_target', { lat, lng });
-        targetLatInput.value = '';
-        targetLngInput.value = '';
-        alert('Fox coordinate broadcasted globally!');
-    }
+    try {
+        const res = await fetch('/api/admin_set_target', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}` 
+            },
+            body: JSON.stringify({ lat, lng })
+        });
+        if (res.ok) {
+            targetLatInput.value = '';
+            targetLngInput.value = '';
+            alert('Fox coordinate broadcasted globally!');
+            fetchSyncState();
+        } else {
+            alert('Failed to set target');
+        }
+    } catch(e) { console.error(e); }
 });
