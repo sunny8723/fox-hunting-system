@@ -14,14 +14,10 @@
   <!-- LOGIN VIEW -->
   <div class="glass-container" id="loginView">
     <h1>Foxhunting Agent</h1>
-    <p class="subtitle">Join the hunt or command the field.</p>
+    <p class="subtitle">Join the hunt.</p>
     <div class="form-group">
       <label for="playerName">Operative Name</label>
-      <input type="text" id="playerName" placeholder="Enter your name (Student)" autocomplete="off">
-    </div>
-    <div class="form-group">
-      <label for="adminPassword" style="color: var(--text-muted); font-size: 0.75rem;">Admin Password (Leave blank if you're a student)</label>
-      <input type="password" id="adminPassword" placeholder="Admin Secret Password" autocomplete="off">
+      <input type="text" id="playerName" placeholder="Enter your name" autocomplete="off">
     </div>
     <button id="joinBtn">Deploy / Login</button>
   </div>
@@ -58,53 +54,12 @@
     </div>
   </div>
 
-  <!-- ADMIN VIEW -->
-  <div class="glass-container admin-container" id="adminView" style="display: none;">
-    <h1>Command Center</h1>
-    <p class="subtitle">Set the target location and monitor field operatives.</p>
-    
-    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
-      <h3 style="margin-bottom: 1rem;">Set Target Coordinate (The Fox)</h3>
-      <div style="display: flex; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; margin: 0; min-width: 200px;">
-          <label>Latitude</label>
-          <input type="number" step="any" id="targetLat" placeholder="e.g. 51.5074">
-        </div>
-        <div class="form-group" style="flex: 1; margin: 0; min-width: 200px;">
-          <label>Longitude</label>
-          <input type="number" step="any" id="targetLng" placeholder="e.g. -0.1278">
-        </div>
-      </div>
-      <button id="setTargetBtn" style="margin-top: 1rem;">Broadcast Target</button>
-    </div>
-
-    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
-      <h3 style="margin-bottom: 1rem;">Active Targets (Foxes)</h3>
-      <div id="adminTargetsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <p style="color: var(--text-muted);">No active targets.</p>
-      </div>
-    </div>
-
-
-    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
-      <h3 style="margin-bottom: 1rem;">Live QR Discoveries 🏆</h3>
-      <div id="adminDiscoveriesList" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 400px; overflow-y: auto;">
-        <p style="color: var(--text-muted);">No foxes discovered yet.</p>
-      </div>
-    </div>
-
-    <h3 style="margin-bottom: 1rem;">Active Operatives</h3>
-    <div class="grid" id="participantsGrid">
-      <p style="color: var(--text-muted);">No operatives active.</p>
-    </div>
   <!-- Leaflet Map -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
-  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
-  <!-- Firebase Firestore Compat -->
-  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
-  
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+
   <!-- HTML5 QR Scanner Library -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foxhunting Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- LOGIN VIEW -->
+  <div class="glass-container" id="loginView">
+    <h1>Command Center</h1>
+    <p class="subtitle">Authenticate into the Foxhunting admin portal.</p>
+    <div class="form-group">
+      <label for="adminPassword" style="color: var(--text-muted); font-size: 0.75rem;">Admin Password</label>
+      <input type="password" id="adminPassword" placeholder="Master Secret" autocomplete="off">
+    </div>
+    <button id="joinBtn">Console / Login</button>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div class="glass-container admin-container" id="adminView" style="display: none;">
+    <h1>Command Center Dashboard</h1>
+    <p class="subtitle">Set target locations, monitor operatives, and generate QR codes.</p>
+    
+    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        Live Tracking Map
+        <button id="themeToggleBtn" style="font-size: 0.8rem; padding: 0.4rem 1rem; width: auto; background: var(--accent); border-radius: 6px;">Light Mode</button>
+      </h3>
+      <div id="adminMap" style="height: 400px; width: 100%; border-radius: 8px;"></div>
+    </div>
+
+    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">Deploy New Target (The Fox)</h3>
+      <div style="display: flex; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; margin: 0; min-width: 200px;">
+          <label>Latitude</label>
+          <input type="number" step="any" id="targetLat" placeholder="e.g. 51.5074">
+        </div>
+        <div class="form-group" style="flex: 1; margin: 0; min-width: 200px;">
+          <label>Longitude</label>
+          <input type="number" step="any" id="targetLng" placeholder="e.g. -0.1278">
+        </div>
+      </div>
+      <button id="setTargetBtn" style="margin-top: 1rem;">Broadcast Coordinates</button>
+    </div>
+
+    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">Active Targets (Foxes)</h3>
+      <div id="adminTargetsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <p style="color: var(--text-muted);">No active targets.</p>
+      </div>
+    </div>
+
+
+    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+      <h3 style="margin-bottom: 1rem;">Live Discoveries Relay 🏆</h3>
+      <div id="adminDiscoveriesList" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 400px; overflow-y: auto;">
+        <p style="color: var(--text-muted);">No discoveries relayed yet.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-bottom: 1rem;">Tracked Operatives</h3>
+    <div class="grid" id="participantsGrid">
+      <p style="color: var(--text-muted);">No operatives online.</p>
+    </div>
+  </div>
+
+  <!-- Leaflet Map -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Modals & Toasts -->
+  <div id="discoveryModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 1rem; backdrop-filter: blur(8px);">
+      <div class="glass-container" style="padding: 2.5rem; border-radius: 16px; max-width: 450px; text-align: center; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 15px 40px rgba(0,0,0,0.8);">
+          <h2 id="modalTitle" style="color: #fff; margin-bottom: 1rem; font-size: 2rem; background: linear-gradient(to right, #34d399, #10b981); background-clip: text; -webkit-background-clip: text; color: transparent;">Target</h2>
+          <p id="modalBody" style="color: var(--text-muted); margin-bottom: 2rem; font-size: 1.1rem; line-height: 1.5;">Modal</p>
+          <button id="modalActionBtn" onclick="document.getElementById('discoveryModal').style.display='none'" style="background: #10b981; color: white; display: inline-block; border: none; padding: 0.8rem 1.5rem; border-radius: 8px; font-weight: bold; cursor: pointer;">Close</button>
+      </div>
+  </div>
+  <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;"></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
