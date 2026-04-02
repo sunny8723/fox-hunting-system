@@ -9,15 +9,22 @@ async function fetchSyncState() {
         const res = await fetch('/api/sync', {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        if (res.ok) {
-            const state = await res.json();
-            
-            if (allDiscoveries.length < state.discoveries.length && allDiscoveries.length > 0) {
+        if (!res.ok) {
+            console.warn("Sync error:", res.status);
+            return;
+        }
+        let state;
+        try {
+            state = await res.json();
+        } catch(e) { return; }
+        
+        if (!state || !state.discoveries || !state.targets) return;
+        
+        if (allDiscoveries.length < state.discoveries.length && allDiscoveries.length > 0) {
                 showToast("New Discovery Relayed!", "success");
             }
             
             handleStateSync(state);
-        }
     } catch(e) { console.error('Sync Error', e); }
 }
 
@@ -385,13 +392,16 @@ setTargetBtn.addEventListener('click', async () => {
             },
             body: JSON.stringify({ lat, lng })
         });
-        if (res.ok) {
+        let data;
+        try { data = await res.json(); } catch(e) { data = {}; }
+        
+        if (res.ok && data.success) {
             targetLatInput.value = '';
             targetLngInput.value = '';
             alert('Fox coordinate broadcasted globally!');
             fetchSyncState();
         } else {
-            alert('Failed to set target');
+            alert('Failed to set target: ' + (data.error || 'Server error'));
         }
     } catch(e) { console.error(e); }
 });

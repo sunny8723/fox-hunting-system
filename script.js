@@ -9,12 +9,23 @@ async function fetchSyncState() {
         const res = await fetch('/api/sync', {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        if (res.ok) {
-            const state = await res.json();
-            
-            // Check for new discoveries to show toast
-            if (allDiscoveries.length < state.discoveries.length && allDiscoveries.length > 0) {
-                const newDiscs = state.discoveries.filter(d => !allDiscoveries.find(old => old.id === d.id));
+        if (!res.ok) {
+            console.warn("Sync API non-200 response:", res.status);
+            return;
+        }
+        let state;
+        try {
+            state = await res.json();
+        } catch(e) {
+            console.warn("Sync API JSON parse failed");
+            return;
+        }
+        
+        if (!state || !state.discoveries || !state.targets) return; // Prevent crashes!
+
+        // Check for new discoveries to show toast
+        if (allDiscoveries.length < state.discoveries.length && allDiscoveries.length > 0) {
+            const newDiscs = state.discoveries.filter(d => !allDiscoveries.find(old => old.id === d.id));
                 newDiscs.forEach(d => {
                    if (d.playerId !== myId) {
                        showToast(`🏆 ${d.playerName} just found ${d.foxName}!`, "success");
@@ -23,7 +34,6 @@ async function fetchSyncState() {
             }
             
             handleStateSync(state);
-        }
     } catch(e) { console.error('Sync Error', e); }
 }
 
@@ -378,9 +388,12 @@ async function checkPendingScans() {
             },
             body: JSON.stringify({ foxId: targetFoxId })
         });
-        const data = await res.json();
+        let data;
+        try {
+            data = await res.json();
+        } catch(e) { data = {}; }
         
-        if (data.success) {
+        if (res.ok && data.success) {
             showToast("Discovery Validated!", "success");
             showModal("🎉 Target Discovered!", `Incredible! You have successfully found a target!`, false, "Back to Hunting 🦊");
             window.history.replaceState({}, document.title, window.location.pathname);

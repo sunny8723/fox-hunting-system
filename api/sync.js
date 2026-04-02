@@ -1,12 +1,24 @@
 const { getDb, verifyToken } = require('./_firebase');
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     try {
-        const user = verifyToken(req);
-        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+        let user;
+        try {
+            user = verifyToken(req);
+        } catch(authErr) {
+            console.error("Auth Error in /api/sync:", authErr.message);
+            return res.status(401).json({ error: 'Unauthorized: ' + authErr.message });
+        }
 
         const db = getDb();
-        if (!db) return res.status(500).json({ error: 'Database not connected! Vercel requires Firestore.' });
+        if (!db) {
+            console.error("DB Not Connected in /api/sync");
+            return res.status(500).json({ error: 'Database not connected!' });
+        }
 
         const targets = [];
         const tSnap = await db.collection('targets').get();
@@ -34,8 +46,9 @@ module.exports = async (req, res) => {
             players[d.id] = { id: d.id, ...d.data(), updatedAt: Date.now() };
         });
 
-        res.json({ targets, discoveries, players });
+        return res.status(200).json({ targets, discoveries, players });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error("Server Error in /api/sync:", e);
+        return res.status(500).json({ error: 'Internal Server Error', details: e.message });
     }
-};
+}
