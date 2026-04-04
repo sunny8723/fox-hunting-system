@@ -9,7 +9,7 @@ export default async function handler(req, res) {
         let user;
         try {
             user = verifyToken(req);
-        } catch(authErr) {
+        } catch (authErr) {
             console.error("Auth Error in /api/sync:", authErr.message);
             return res.status(401).json({ error: 'Unauthorized: ' + authErr.message });
         }
@@ -22,15 +22,16 @@ export default async function handler(req, res) {
 
         const targets = [];
         const tSnap = await db.collection('targets').get();
-        tSnap.forEach(d => targets.push({ id: d.id, ...d.data() }));
+        tSnap.forEach(doc => {
+            const d = doc.data();
+            targets.push({ ...d, id: doc.id });
+        });
 
         const discoveries = [];
         const dSnap = await db.collection('discoveries').get();
-        dSnap.forEach(d => {
-            const data = d.data();
+        dSnap.forEach(doc => {
+            const data = doc.data();
             discoveries.push({
-                id: d.id,
-                playerId: data.playerId,
                 playerName: data.playerName,
                 foxId: data.foxId,
                 foxName: data.foxName,
