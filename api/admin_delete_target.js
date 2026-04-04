@@ -9,7 +9,7 @@ export default async function handler(req, res) {
         let user;
         try {
             user = verifyToken(req);
-        } catch(authErr) {
+        } catch (authErr) {
             console.error("Auth Error in /api/admin_delete_target:", authErr.message);
             return res.status(401).json({ error: 'Unauthorized' });
         }
@@ -18,8 +18,8 @@ export default async function handler(req, res) {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        const { foxId } = req.body;
-        if (!foxId) {
+        const { id } = req.body;
+        if (!id) {
             return res.status(400).json({ error: 'Invalid ID' });
         }
 
@@ -29,8 +29,8 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'Database not connected' });
         }
 
-        await db.collection('targets').doc(foxId).delete();
-        
+        await db.collection('targets').doc(id).delete();
+
         return res.status(200).json({ success: true });
     } catch (e) {
         console.error("Server Error in /api/admin_delete_target:", e);
