@@ -133,7 +133,7 @@ const Dashboard = () => {
 
             {/* Bottom Center - Student Scan Trigger Placeholder */}
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-                <button className="glass-panel px-12 py-4 rounded-full border border-neonGreen shadow-[0_0_20px_rgba(57,255,20,0.3)] bg-neonGreen/10 hover:bg-neonGreen/20 hover:scale-105 transition-all text-neonGreen font-bold tracking-widest text-lg flex items-center gap-3 group">
+                <button className="glass-panel px-12 py-4 rounded-full border border-neonGreen shadow-[0_0_20px_#39ff144d] bg-neonGreen/10 hover:bg-neonGreen/20 hover:scale-105 transition-all text-neonGreen font-bold tracking-widest text-lg flex items-center gap-3 group">
                     <Target className="group-hover:animate-spin" /> SCAN FOX
                 </button>
             </div>
