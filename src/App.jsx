@@ -16,6 +16,30 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
+const foxSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,90 10,40 25,10 40,35 50,25 60,35 75,10 90,40" fill="#E65100" stroke="#FFF" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="50,90 10,40 25,40 50,65 75,40 90,40" fill="#FFB300" stroke="#E65100" stroke-width="1"/>
+  <polygon points="25,10 10,40 25,40" fill="#FFF3E0"/>
+  <polygon points="75,10 90,40 75,40" fill="#FFF3E0"/>
+  <polygon points="50,90 30,55 70,55" fill="#FFF3E0"/>
+  <circle cx="35" cy="45" r="4" fill="#000"/>
+  <circle cx="65" cy="45" r="4" fill="#000"/>
+  <path d="M45,65 Q50,70 55,65" stroke="#000" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="50" cy="58" r="4" fill="#000"/>
+</svg>`;
+
+const foxIconUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(foxSvg)}`;
+
+const foxIcon = new L.Icon({
+    iconUrl: foxIconUrl,
+    iconSize: [45, 45],
+    iconAnchor: [22, 45],
+    popupAnchor: [0, -45],
+    shadowUrl: markerShadow,
+    shadowSize: [45, 45],
+    shadowAnchor: [12, 45]
+});
+
 const API_BASE = '';
 
 const calcDistance = (lat1, lon1, lat2, lon2) => {
@@ -177,7 +201,7 @@ const AdminDashboard = ({ logout, token }) => {
                     <TileLayer url={tileUrl} />
 
                     {data.targets.map(t => (
-                        t.lat && t.lng ? <Marker key={t.id} position={[t.lat, t.lng]}><Popup>Target: {t.name || t.id}</Popup></Marker> : null
+                        t.lat && t.lng ? <Marker key={t.id} position={[t.lat, t.lng]} icon={foxIcon}><Popup>Target: {t.name || t.id}</Popup></Marker> : null
                     ))}
 
                     {Object.values(data.players || {}).map(p => (
