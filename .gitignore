@@ -4,3 +4,6 @@ temp*.js
 server.js
 *.zip
 *.msi
+fox-hunting-*.json
+serviceAccountKey.json
+.env
