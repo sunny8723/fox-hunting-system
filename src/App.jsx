@@ -3,6 +3,16 @@ import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2,
 
 const API_BASE = '';
 
+const calcDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 999999;
+    const R = 6371e3;
+    const rad = Math.PI / 180;
+    const dPhi = (lat2 - lat1) * rad;
+    const dLambda = (lon2 - lon1) * rad;
+    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+    return Math.floor(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+};
+
 const AuthPanel = ({ onAuth, isAdminRoute }) => {
     const [inputValue, setInputValue] = useState('');
     const [error, setError] = useState('');
@@ -126,7 +136,7 @@ const AdminDashboard = ({ logout, token }) => {
                             <label className="text-neonBlue/70 text-xs font-bold uppercase tracking-wider">Active Targets</label>
                             {data.targets.map(t => (
                                 <div key={t.id} className="flex justify-between items-center text-xs text-white border border-white/10 p-2 rounded bg-black/30">
-                                    <span className="font-mono">{t.name}</span>
+                                    <span className="font-mono">{t.id}</span>
                                     <button onClick={() => deleteFox(t.id)} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
                                 </div>
                             ))}
@@ -176,8 +186,18 @@ const AdminDashboard = ({ logout, token }) => {
 
 const StudentDashboard = ({ logout, token }) => {
     const [loc, setLoc] = useState({ lat: null, lng: null });
+    const [closestDist, setClosestDist] = useState(null);
 
     useEffect(() => {
+        let targets = [];
+        const fetchSync = () => {
+            fetch(`${API_BASE}/api/sync`, { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(r => r.json())
+                .then(d => { if (!d.error) targets = d.targets; });
+        };
+        fetchSync();
+        const iv = setInterval(fetchSync, 5000);
+
         if (navigator.geolocation) {
             const wid = navigator.geolocation.watchPosition(
                 (pos) => {
@@ -188,10 +208,19 @@ const StudentDashboard = ({ logout, token }) => {
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                         body: JSON.stringify(coords)
                     });
+
+                    if (targets.length > 0) {
+                        let minD = 999999;
+                        targets.forEach(t => {
+                            const d = calcDistance(coords.lat, coords.lng, t.lat, t.lng);
+                            if (d < minD) minD = d;
+                        });
+                        setClosestDist(minD);
+                    }
                 },
                 () => { }, { enableHighAccuracy: true }
             );
-            return () => navigator.geolocation.clearWatch(wid);
+            return () => { navigator.geolocation.clearWatch(wid); clearInterval(iv); };
         }
     }, [token]);
 
@@ -200,7 +229,9 @@ const StudentDashboard = ({ logout, token }) => {
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto w-11/12 max-w-md">
                 <div className="glass-panel p-4 rounded-xl border border-neonBlue flex flex-col items-center justify-center">
                     <h3 className="text-neonBlue text-sm font-bold tracking-widest uppercase mb-1">Awaiting Mission Briefing</h3>
-                    <p className="text-white/60 text-xs font-mono">Locating nearest intel drop...</p>
+                    <p className="text-white/60 text-xs font-mono">
+                        {closestDist === null ? "Locating nearest target..." : `Distance to closest target: ${closestDist} meters`}
+                    </p>
                     {loc.lat && <p className="text-white/40 text-[10px] font-mono mt-2 flex gap-4"><span>LAT: {loc.lat.toFixed(5)}</span> <span>LNG: {loc.lng.toFixed(5)}</span></p>}
                 </div>
                 <button onClick={logout} className="mt-4 w-full py-2 bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-bold rounded hover:bg-red-500/30 tracking-widest shadow-[0_0_10px_#ef44444d]">
