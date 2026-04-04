@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair, Layers } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import jsQR from "jsqr";
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -242,6 +243,66 @@ const StudentDashboard = ({ logout, token }) => {
     const [closestDist, setClosestDist] = useState(null);
     const [mapType, setMapType] = useState('roadmap');
 
+    const [scanStatus, setScanStatus] = useState(null);
+    const [scanning, setScanning] = useState(false);
+    const fileRef = useRef(null);
+
+    const handleImageCapture = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setScanning(true);
+        setScanStatus("ANALYZING IMAGE...");
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new window.Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+                const maxDim = 800;
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > maxDim) { height *= maxDim / width; width = maxDim; }
+                } else {
+                    if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                context.drawImage(img, 0, 0, width, height);
+                const imageData = context.getImageData(0, 0, width, height);
+
+                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+
+                if (code && code.data) {
+                    setScanStatus("QR FOUND. CONTACTING COMMAND...");
+                    fetch(`${API_BASE}/api/scan_target`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ foxId: code.data })
+                    })
+                        .then(r => r.json())
+                        .then(data => {
+                            setScanStatus(data.msg || (data.success ? "TARGET SECURED!" : "FAILED TO CAPTURE"));
+                            setScanning(false);
+                            setTimeout(() => setScanStatus(null), 5000);
+                        })
+                        .catch(() => {
+                            setScanStatus("UPLINK FAILED.");
+                            setScanning(false);
+                            setTimeout(() => setScanStatus(null), 5000);
+                        });
+                } else {
+                    setScanStatus("NO QR DETECTED. RETRY.");
+                    setScanning(false);
+                    setTimeout(() => setScanStatus(null), 3000);
+                }
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
     useEffect(() => {
         let targets = [];
         const fetchSync = () => {
@@ -309,9 +370,16 @@ const StudentDashboard = ({ logout, token }) => {
                 </div>
             </div>
 
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-auto shadow-2xl">
-                <button onClick={() => alert('Scanner opening... (Please implement QR library)')} className="bg-gray-900/85 backdrop-blur-md px-12 py-4 rounded-full border-2 border-neonGreen shadow-[0_0_15px_#39ff144d] hover:bg-black hover:scale-105 transition-all text-neonGreen font-bold tracking-widest text-lg flex items-center gap-3 group">
-                    <Crosshair className="group-hover:animate-spin" /> SCAN FOX
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex flex-col items-center">
+                {scanStatus && (
+                    <div className="mb-4 bg-gray-900/90 border border-neonGreen/50 px-6 py-3 rounded text-neonGreen font-mono text-xs uppercase tracking-widest shadow-2xl animate-pulse">
+                        {scanStatus}
+                    </div>
+                )}
+                <input type="file" accept="image/*" capture="environment" ref={fileRef} onChange={handleImageCapture} className="hidden" />
+
+                <button disabled={scanning} onClick={() => fileRef.current.click()} className="bg-gray-900/85 backdrop-blur-md px-12 py-4 rounded-full border-2 border-neonGreen shadow-[0_0_15px_#39ff144d] hover:bg-black hover:scale-105 transition-all text-neonGreen font-bold tracking-widest text-lg flex items-center gap-3 group disabled:opacity-50 disabled:hover:scale-100">
+                    <Crosshair className={`group-hover:animate-spin ${scanning ? 'animate-spin' : ''}`} /> {scanning ? 'SCANNING' : 'SCAN FOX'}
                 </button>
             </div>
         </>
