@@ -170,7 +170,7 @@ const AdminDashboard = ({ logout, token }) => {
                             <label className="text-neonBlue/70 text-xs font-bold uppercase tracking-wider">Active Targets</label>
                             {data.targets.map(t => (
                                 <div key={t.id} className="flex justify-between items-center text-xs text-white border border-white/10 p-2 rounded bg-black/30">
-                                    <span className="font-mono truncate mr-2">{t.id}</span>
+                                    <span className="font-mono truncate mr-2">{t.name || t.id}</span>
                                     <button onClick={() => deleteFox(t.id)} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
                                 </div>
                             ))}
