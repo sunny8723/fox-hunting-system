@@ -102,7 +102,7 @@ const AuthPanel = ({ onAuth, isAdminRoute }) => {
 
             {/* Light familiar Google Map background for Auth screen */}
             <div className="absolute inset-0 z-0">
-                <MapContainer center={[37.7749, -122.4194]} zoom={13} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+                <MapContainer center={[27.133, 93.731]} zoom={15} zoomControl={false} style={{ width: '100%', height: '100%' }}>
                     <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" />
                 </MapContainer>
             </div>
