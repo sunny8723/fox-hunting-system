@@ -9,20 +9,38 @@ function getDb() {
     if (db) return db;
     if (admin.apps.length === 0) {
         try {
-            // Check both cwd and parent folder just in case
-            let servicePath = path.join(process.cwd(), 'serviceAccountKey.json');
-            if (!fs.existsSync(servicePath)) {
-                servicePath = path.join(__dirname, '../serviceAccountKey.json');
-            }
-            if (fs.existsSync(servicePath)) {
-                const serviceAccount = JSON.parse(fs.readFileSync(servicePath, 'utf8'));
+            if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+                const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
                 admin.initializeApp({
                     credential: admin.credential.cert(serviceAccount)
                 });
                 db = admin.firestore();
-                console.log('[+] Firebase Admin Initialized Successfully');
+                console.log('[+] Firebase Admin Initialized via FIREBASE_SERVICE_ACCOUNT Environment Variable');
+            } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+                admin.initializeApp({
+                    credential: admin.credential.cert({
+                        projectId: process.env.FIREBASE_PROJECT_ID,
+                        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+                    })
+                });
+                db = admin.firestore();
+                console.log('[+] Firebase Admin Initialized via individual Environment Variables');
             } else {
-                console.warn('[-] serviceAccountKey.json not found! Required for serverless.');
+                let servicePath = path.join(process.cwd(), 'serviceAccountKey.json');
+                if (!fs.existsSync(servicePath)) {
+                    servicePath = path.join(__dirname, '../serviceAccountKey.json');
+                }
+                if (fs.existsSync(servicePath)) {
+                    const serviceAccount = JSON.parse(fs.readFileSync(servicePath, 'utf8'));
+                    admin.initializeApp({
+                        credential: admin.credential.cert(serviceAccount)
+                    });
+                    db = admin.firestore();
+                    console.log('[+] Firebase Admin Initialized via serviceAccountKey.json');
+                } else {
+                    console.warn('[-] Missing Firebase credentials! Set FIREBASE_SERVICE_ACCOUNT env var in Vercel.');
+                }
             }
         } catch (e) {
             console.error('[-] Failed to initialize Firebase Admin', e);
@@ -52,11 +70,11 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const dPhi = (lat2 - lat1) * rad;
     const dLambda = (lon2 - lon1) * rad;
 
-    const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) +
-              Math.cos(phi1) * Math.cos(phi2) *
-              Math.sin(dLambda/2) * Math.sin(dLambda/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; 
+    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
+        Math.cos(phi1) * Math.cos(phi2) *
+        Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
 
 module.exports = {
