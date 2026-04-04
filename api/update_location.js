@@ -29,6 +29,11 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'Database not connected' });
         }
 
+        const playerSnap = await db.collection('players').doc(user.id).get();
+        if (playerSnap.exists && playerSnap.data().isBlocked) {
+            return res.status(403).json({ error: 'Player is blocked by command' });
+        }
+
         const ip = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.socket?.remoteAddress || 'Unknown IP');
 
         await db.collection('players').doc(user.id).set({

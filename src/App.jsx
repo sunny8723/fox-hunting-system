@@ -146,6 +146,14 @@ const AdminDashboard = ({ logout, token }) => {
         });
     };
 
+    const toggleBlockPlayer = async (playerId, currentStatus) => {
+        await fetch(`${API_BASE}/api/admin_block_player`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ playerId, block: !currentStatus })
+        });
+    };
+
     const deleteDiscovery = async (id) => {
         await fetch(`${API_BASE}/api/admin_delete_discovery`, {
             method: 'POST',
@@ -257,7 +265,16 @@ const AdminDashboard = ({ logout, token }) => {
                                     <span className="text-gray-200 font-bold max-w-[120px] truncate">{p.name || 'Agent'}</span>
                                     {p.ip && <span className="text-[9px] text-gray-500 font-mono mt-0.5" title="Player IP Address">IP: {p.ip}</span>}
                                 </div>
-                                <span className="text-[10px] text-yellow-500 font-mono tracking-widest animate-pulse">ACTIVE</span>
+                                <div className="flex flex-col gap-1 items-end">
+                                    {p.isBlocked ? (
+                                        <span className="text-[10px] text-red-500 font-mono tracking-widest animate-pulse font-bold">BLOCKED</span>
+                                    ) : (
+                                        <span className="text-[10px] text-yellow-500 font-mono tracking-widest animate-pulse">ACTIVE</span>
+                                    )}
+                                    <button onClick={() => toggleBlockPlayer(p.id, p.isBlocked)} className={`text-[9px] px-2 py-0.5 rounded border font-mono tracking-widest transition-colors ${p.isBlocked ? 'text-green-400 border-green-500/30 hover:bg-green-500/10' : 'text-red-400 border-red-500/30 hover:bg-red-500/10'}`}>
+                                        {p.isBlocked ? 'UNBLOCK' : 'BLOCK'}
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -344,6 +361,11 @@ const StudentDashboard = ({ logout, token }) => {
                     })
                         .then(r => r.json())
                         .then(data => {
+                            if (data.msg === "ACCESS REVOKED BY COMMAND.") {
+                                alert("ACCESS DENIED: BAN HAMMER STRUCK. COMMENCE PANIC.");
+                                logout();
+                                return;
+                            }
                             setScanStatus(data.msg || (data.success ? "TARGET SECURED!" : "FAILED TO CAPTURE"));
                             setScanning(false);
                             setTimeout(() => setScanStatus(null), 5000);
@@ -383,7 +405,12 @@ const StudentDashboard = ({ logout, token }) => {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                         body: JSON.stringify(coords)
-                    });
+                    }).then(r => {
+                        if (r.status === 403) {
+                            alert("ACCESS DENIED: BAN HAMMER STRUCK. YOUR DEVICE HAS BEEN BLOCKED.");
+                            logout();
+                        }
+                    }).catch(() => { });
 
                     if (targets.length > 0) {
                         let minD = 999999;

@@ -9,7 +9,7 @@ export default async function handler(req, res) {
         let user;
         try {
             user = verifyToken(req);
-        } catch(authErr) {
+        } catch (authErr) {
             console.error("Auth Error in /api/scan_target:", authErr.message);
             return res.status(401).json({ success: false, msg: 'Unauthorized' });
         }
@@ -33,6 +33,10 @@ export default async function handler(req, res) {
         }
         const player = playerSnap.data();
 
+        if (player.isBlocked) {
+            return res.status(403).json({ success: false, msg: "ACCESS REVOKED BY COMMAND." });
+        }
+
         if (player.lat == null || player.lng == null) {
             return res.status(400).json({ success: false, msg: "Awaiting GPS lock." });
         }
@@ -47,9 +51,9 @@ export default async function handler(req, res) {
         // Check distance
         const dist = calculateDistance(player.lat, player.lng, target.lat, target.lng);
         if (dist > 25) {
-            return res.status(400).json({ 
-                success: false, 
-                msg: `Validation failed. You are ${Math.round(dist)} meters away. Must be <25m.` 
+            return res.status(400).json({
+                success: false,
+                msg: `Validation failed. You are ${Math.round(dist)} meters away. Must be <25m.`
             });
         }
 
@@ -58,7 +62,7 @@ export default async function handler(req, res) {
             .where('playerId', '==', pid)
             .where('foxId', '==', foxId)
             .get();
-            
+
         if (!discSnap.empty) {
             return res.status(400).json({ success: false, msg: "You already claimed this fox." });
         }
@@ -75,7 +79,7 @@ export default async function handler(req, res) {
 
         const docRef = await db.collection('discoveries').add(discovery);
         discovery.id = docRef.id;
-        
+
         return res.status(200).json({ success: true, discovery });
     } catch (e) {
         console.error("Server Error in /api/scan_target:", e);
