@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair, Layers, QrCode } from 'lucide-react';
+import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair, Layers, QrCode, Bell, Trophy } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import jsQR from "jsqr";
@@ -15,6 +15,14 @@ L.Icon.Default.mergeOptions({
     iconRetinaUrl: markerIcon2x,
     shadowUrl: markerShadow,
 });
+
+const globalStyles = `
+@keyframes slideUpFade {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.animate-toast { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+`;
 
 const foxSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <polygon points="50,90 10,40 25,10 40,35 50,25 60,35 75,10 90,40" fill="#E65100" stroke="#FFF" stroke-width="2" stroke-linejoin="round"/>
@@ -38,6 +46,13 @@ const foxIcon = new L.Icon({
     shadowUrl: markerShadow,
     shadowSize: [45, 45],
     shadowAnchor: [12, 45]
+});
+
+const createRippleIcon = () => new L.divIcon({
+    className: 'bg-transparent',
+    html: '<div class="relative w-6 h-6"><div class="absolute -inset-4 rounded-full bg-neonGreen/40 animate-ping"></div><div class="absolute inset-0 rounded-full bg-neonGreen/80 border-2 border-white shadow-[0_0_15px_#39ff14]"></div></div>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
 });
 
 const API_BASE = '';
@@ -139,6 +154,17 @@ const AdminDashboard = ({ logout, token }) => {
     const [mapType, setMapType] = useState('roadmap');
     const [selectedQR, setSelectedQR] = useState(null);
 
+    const [toasts, setToasts] = useState([]);
+    const [recentCaptures, setRecentCaptures] = useState([]);
+    const prevDisc = useRef(0);
+    const prevTargets = useRef(0);
+
+    const addToast = (msg, type = 'info') => {
+        const id = Date.now() + Math.random();
+        setToasts(prev => [...prev, { id, msg, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 6000);
+    };
+
     useEffect(() => {
         const fetchSync = () => {
             fetch(`${API_BASE}/api/sync`, { headers: { 'Authorization': `Bearer ${token}` } })
@@ -149,6 +175,22 @@ const AdminDashboard = ({ logout, token }) => {
         const iv = setInterval(fetchSync, 5000);
         return () => clearInterval(iv);
     }, [token]);
+
+    useEffect(() => {
+        if (data.discoveries.length > prevDisc.current && prevDisc.current !== 0) {
+            const newDiscs = data.discoveries.slice(0, data.discoveries.length - prevDisc.current);
+            newDiscs.forEach(d => {
+                addToast(`🎯 ${d.playerName} secured ${d.foxName || d.foxId}!`, 'success');
+                setRecentCaptures(prev => [...prev, d]);
+                setTimeout(() => setRecentCaptures(prev => prev.filter(rc => rc.id !== d.id)), 8000);
+            });
+        }
+        if (data.targets.length > prevTargets.current && prevTargets.current !== 0) {
+            addToast(`🚨 New fox deployed to operational zone!`, 'alert');
+        }
+        prevDisc.current = data.discoveries.length;
+        prevTargets.current = data.targets.length;
+    }, [data.discoveries, data.targets]);
 
     const deployFox = async () => {
         if (!lat || !lng) return;
@@ -191,6 +233,12 @@ const AdminDashboard = ({ logout, token }) => {
         });
     };
 
+    const leaderboard = Object.values(data.players || {}).map(p => {
+        const secures = data.discoveries.filter(d => d.playerId === p.id);
+        const lastSecured = secures.length > 0 ? Math.max(...secures.map(s => new Date(s.timestamp).getTime())) : 0;
+        return { ...p, score: secures.length, lastSecured };
+    }).sort((a, b) => b.score - a.score || a.lastSecured - b.lastSecured);
+
     const tileUrl = mapType === 'roadmap' ? "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" : "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}";
 
     return (
@@ -200,6 +248,10 @@ const AdminDashboard = ({ logout, token }) => {
                     <ChangeView center={data.targets.length > 0 ? [data.targets[0].lat, data.targets[0].lng] : [37.7749, -122.4194]} zoom={18} />
                     <TileLayer url={tileUrl} />
 
+                    {recentCaptures.map(rc => (
+                        rc.lat && rc.lng ? <Marker key={`rip-${rc.id}`} position={[rc.lat, rc.lng]} icon={createRippleIcon()} /> : null
+                    ))}
+
                     {data.targets.map(t => (
                         t.lat && t.lng ? <Marker key={t.id} position={[t.lat, t.lng]} icon={foxIcon}><Popup>Target: {t.name || t.id}</Popup></Marker> : null
                     ))}
@@ -208,6 +260,22 @@ const AdminDashboard = ({ logout, token }) => {
                         p.lat && p.lng ? <Marker key={p.id} position={[p.lat, p.lng]}><Popup>Player: {p.name}</Popup></Marker> : null
                     ))}
                 </MapContainer>
+            </div>
+
+            {/* Tactical Live Toasts */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col-reverse gap-3 pointer-events-none">
+                {toasts.map(t => {
+                    let color = 'border-neonBlue bg-neonBlue/10 text-neonBlue shadow-[0_0_15px_#00f3ff4d]';
+                    if (t.type === 'success') color = 'border-neonGreen bg-neonGreen/10 text-neonGreen shadow-[0_0_15px_#39ff144d]';
+                    if (t.type === 'alert') color = 'border-red-500 bg-red-500/10 text-red-500 shadow-[0_0_15px_#ef44444d]';
+
+                    return (
+                        <div key={t.id} className={`px-4 py-3 rounded-lg border backdrop-blur-md animate-toast flex items-center gap-3 w-80 ${color}`}>
+                            <Bell className="animate-pulse flex-shrink-0" size={16} />
+                            <span className="font-mono text-xs font-bold uppercase tracking-widest">{t.msg}</span>
+                        </div>
+                    );
+                })}
             </div>
 
             {selectedQR && (
@@ -315,8 +383,41 @@ const AdminDashboard = ({ logout, token }) => {
                 </div>
             </div>
 
-            <div className="w-96 h-full relative z-20 flex flex-col p-6 ml-auto pointer-events-none">
-                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl pointer-events-auto w-full h-full rounded-xl flex flex-col border border-white/10 border-r-4 border-r-neonGreen overflow-hidden">
+            <div className="w-96 h-full relative z-20 flex flex-col gap-4 p-6 ml-auto pointer-events-none">
+
+                {/* LEADERBOARD BOX */}
+                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl pointer-events-auto w-full h-1/2 flex flex-col rounded-xl border border-white/10 border-r-4 border-r-yellow-400 overflow-hidden">
+                    <div className="bg-gradient-to-l from-yellow-400/10 to-transparent p-4 border-b border-white/10 flex items-center gap-3">
+                        <Trophy className="text-yellow-400 text-shadow" size={18} />
+                        <h2 className="text-white font-bold uppercase tracking-widest text-sm">Leaderboard</h2>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        {leaderboard.length === 0 && <p className="text-gray-500 text-xs text-center font-mono mt-4">No ranked agents.</p>}
+                        {leaderboard.map((p, index) => {
+                            let rankStyles = "border border-white/5 bg-black/60 text-gray-400";
+                            let icon = null;
+                            if (index === 0 && p.score > 0) { rankStyles = "border-2 border-yellow-400/50 bg-yellow-400/10 text-yellow-400 shadow-[0_0_15px_#facc154d] scale-105 transform z-10 relative mb-3"; icon = "🥇"; }
+                            else if (index === 1 && p.score > 0) { rankStyles = "border border-gray-300/50 bg-gray-300/10 text-gray-200 shadow-[0_0_10px_#d1d5db4d]"; icon = "🥈"; }
+                            else if (index === 2 && p.score > 0) { rankStyles = "border border-amber-600/50 bg-amber-600/10 text-amber-600 shadow-[0_0_10px_#d977064d]"; icon = "🥉"; }
+
+                            return (
+                                <div key={p.id} className={`rounded p-3 flex justify-between items-center transition-all duration-500 ${rankStyles}`}>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-bold text-lg w-6 text-center">{icon || \`#\${index + 1}\`}</span>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-sm tracking-wide truncate max-w-[120px]">{p.name || 'Agent'}</span>
+                                            {p.lastSecured > 0 && <span className="text-[9px] opacity-70 font-mono">LST: {new Date(p.lastSecured).toLocaleTimeString()}</span>}
+                                        </div>
+                                    </div>
+                                    <span className="text-xl font-black font-mono">{p.score} <span className="text-[10px] uppercase font-normal opacity-70">SEC</span></span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                {/* MISSION LOG BOX */}
+                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl pointer-events-auto w-full h-1/2 flex flex-col rounded-xl border border-white/10 border-r-4 border-r-neonGreen overflow-hidden">
                     <div className="bg-gradient-to-l from-neonGreen/10 to-transparent p-4 border-b border-white/10 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Users className="text-neonGreen" />
@@ -515,6 +616,8 @@ export default function App() {
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-neutral-900 flex">
+            <style>{globalStyles}</style>
+
             {/* Minimalist Top Bars, transparent */}
             <div className="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between p-4">
                 <div className="w-full flex justify-between">
