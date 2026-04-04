@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair } from 'lucide-react';
+import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair, Layers } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -65,8 +65,8 @@ const AuthPanel = ({ onAuth, isAdminRoute }) => {
     };
 
     return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="glass-panel p-10 rounded-2xl w-[400px] flex flex-col items-center animate-fade-in relative z-50">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-gray-900/90 backdrop-blur-md border border-neonBlue/30 shadow-2xl p-10 rounded-2xl w-[400px] flex flex-col items-center animate-fade-in relative z-50">
                 <div className="absolute top-4 right-4 bg-neonBlue/10 p-1 px-3 rounded text-neonBlue text-xs font-bold tracking-widest border border-neonBlue/30">
                     {isAdminRoute ? 'ADMIN PORTAL' : 'STUDENT PORTAL'}
                 </div>
@@ -75,7 +75,7 @@ const AuthPanel = ({ onAuth, isAdminRoute }) => {
                     <div className="absolute top-0 left-0 w-16 h-16 bg-neonBlue/30 blur-xl rounded-full"></div>
                 </div>
                 <h2 className="text-2xl font-bold uppercase tracking-widest text-white mb-1">Command Center</h2>
-                <p className="text-neonBlue/80 text-xs mb-8 uppercase tracking-widest font-semibold flex items-center gap-2">
+                <p className="text-gray-400 text-xs mb-8 uppercase tracking-widest font-semibold flex items-center gap-2">
                     <Activity size={14} className="text-red-500 animate-pulse" /> Authorized Access Only
                 </p>
 
@@ -84,7 +84,7 @@ const AuthPanel = ({ onAuth, isAdminRoute }) => {
                 <input
                     type={isAdminRoute ? "password" : "text"}
                     placeholder={isAdminRoute ? "ENTER ADMIN KEY" : "ENTER YOUR NAME"}
-                    className="w-full bg-black/50 border border-neonBlue/30 rounded px-4 py-3 text-center text-white placeholder-neonBlue/30 focus:outline-none focus:border-neonBlue focus:shadow-[0_0_10px_#00f3ff] transition-all mb-6 font-mono text-lg tracking-widest"
+                    className="w-full bg-black/60 border border-neonBlue/30 rounded px-4 py-3 text-center text-white placeholder-gray-500 focus:outline-none focus:border-neonBlue focus:shadow-[0_0_10px_#00f3ff] transition-all mb-6 font-mono text-lg tracking-widest"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                 />
@@ -98,10 +98,10 @@ const AuthPanel = ({ onAuth, isAdminRoute }) => {
                 </button>
             </div>
 
-            {/* Display static cool map background purely for auth screen */}
-            <div className="absolute inset-0 z-0 opacity-40 brightness-75 contrast-125 hue-rotate-180 sepia-[.3]">
+            {/* Light familiar Google Map background for Auth screen */}
+            <div className="absolute inset-0 z-0">
                 <MapContainer center={[37.7749, -122.4194]} zoom={13} zoomControl={false} style={{ width: '100%', height: '100%' }}>
-                    <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+                    <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" />
                 </MapContainer>
             </div>
         </div>
@@ -112,6 +112,7 @@ const AdminDashboard = ({ logout, token }) => {
     const [data, setData] = useState({ targets: [], discoveries: [], players: {} });
     const [lat, setLat] = useState('');
     const [lng, setLng] = useState('');
+    const [mapType, setMapType] = useState('roadmap');
 
     useEffect(() => {
         const fetchSync = () => {
@@ -142,15 +143,17 @@ const AdminDashboard = ({ logout, token }) => {
         });
     };
 
+    const tileUrl = mapType === 'roadmap' ? "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" : "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}";
+
     return (
         <>
-            <div className="absolute inset-0 z-0 opacity-60 brightness-75 contrast-125 hue-rotate-180 sepia-[.3]">
-                <MapContainer center={[37.7749, -122.4194]} zoom={18} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+            <div className="absolute inset-0 z-0">
+                <MapContainer center={[37.7749, -122.4194]} zoom={18} zoomControl={true} style={{ width: '100%', height: '100%' }}>
                     <ChangeView center={data.targets.length > 0 ? [data.targets[0].lat, data.targets[0].lng] : [37.7749, -122.4194]} zoom={18} />
-                    <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+                    <TileLayer url={tileUrl} />
 
                     {data.targets.map(t => (
-                        t.lat && t.lng ? <Marker key={t.id} position={[t.lat, t.lng]}><Popup>Target ID: {t.id}</Popup></Marker> : null
+                        t.lat && t.lng ? <Marker key={t.id} position={[t.lat, t.lng]}><Popup>Target: {t.name || t.id}</Popup></Marker> : null
                     ))}
 
                     {Object.values(data.players || {}).map(p => (
@@ -159,33 +162,40 @@ const AdminDashboard = ({ logout, token }) => {
                 </MapContainer>
             </div>
 
-            <div className="w-80 h-full relative z-20 flex flex-col p-6 pointer-events-auto">
-                <div className="glass-panel w-full h-full rounded-xl flex flex-col border-l-4 border-neonBlue overflow-hidden">
-                    <div className="bg-neonBlue/10 p-4 border-b border-neonBlue/20 flex items-center gap-3">
-                        <Target className="text-neonBlue" />
-                        <h2 className="text-white font-bold uppercase tracking-widest text-sm">Operation Control</h2>
+            <div className="w-80 h-full relative z-20 flex flex-col p-6 pointer-events-none">
+                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl pointer-events-auto w-full h-full rounded-xl flex flex-col border border-white/10 border-l-4 border-l-neonBlue overflow-hidden">
+                    <div className="bg-gradient-to-r from-neonBlue/10 to-transparent p-4 border-b border-white/10 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Target className="text-neonBlue" />
+                            <h2 className="text-white font-bold uppercase tracking-widest text-sm">Operation Control</h2>
+                        </div>
                     </div>
                     <div className="p-6 flex-1 flex flex-col gap-6 overflow-y-auto">
                         <div className="space-y-2">
-                            <label className="text-neonBlue/70 text-xs font-bold uppercase tracking-wider">Deploy Target (Lat / Lng)</label>
+                            <label className="text-gray-400 text-xs font-bold uppercase tracking-wider">Deploy Target (Lat / Lng)</label>
                             <div className="flex gap-2">
-                                <input value={lat} onChange={e => setLat(e.target.value)} placeholder="LAT..." className="w-1/2 bg-black/40 border border-white/20 rounded px-3 py-2 text-white text-sm font-mono focus:border-neonBlue outline-none" />
-                                <input value={lng} onChange={e => setLng(e.target.value)} placeholder="LNG..." className="w-1/2 bg-black/40 border border-white/20 rounded px-3 py-2 text-white text-sm font-mono focus:border-neonBlue outline-none" />
+                                <input value={lat} onChange={e => setLat(e.target.value)} placeholder="LAT..." className="w-1/2 bg-black/60 border border-white/10 rounded px-3 py-2 text-gray-200 text-sm font-mono focus:border-neonBlue outline-none" />
+                                <input value={lng} onChange={e => setLng(e.target.value)} placeholder="LNG..." className="w-1/2 bg-black/60 border border-white/10 rounded px-3 py-2 text-gray-200 text-sm font-mono focus:border-neonBlue outline-none" />
                             </div>
-                            <button onClick={deployFox} className="w-full py-2 mt-2 bg-neonBlue/20 border border-neonBlue/50 text-neonBlue font-bold rounded text-sm hover:bg-neonBlue/40 uppercase tracking-widest">Deploy Fox</button>
+                            <button onClick={deployFox} className="w-full py-2 mt-2 bg-neonBlue/20 border border-neonBlue/50 text-neonBlue font-bold rounded text-sm hover:bg-neonBlue/40 uppercase tracking-widest transition-colors">Deploy Fox</button>
                         </div>
+
                         <div className="w-full h-px bg-white/10 my-2"></div>
+
                         <div className="space-y-2">
-                            <label className="text-neonBlue/70 text-xs font-bold uppercase tracking-wider">Active Targets</label>
+                            <label className="text-gray-400 text-xs font-bold uppercase tracking-wider">Active Targets</label>
                             {data.targets.map(t => (
-                                <div key={t.id} className="flex justify-between items-center text-xs text-white border border-white/10 p-2 rounded bg-black/30">
+                                <div key={t.id} className="flex justify-between items-center text-xs text-gray-300 border border-white/10 p-2 rounded bg-black/40">
                                     <span className="font-mono truncate mr-2">{t.name || t.id}</span>
                                     <button onClick={() => deleteFox(t.id)} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
                                 </div>
                             ))}
                         </div>
-                        <div className="w-full h-px bg-white/10 my-2"></div>
-                        <div className="space-y-4">
+
+                        <div className="mt-auto pt-4 space-y-4 border-t border-white/10">
+                            <button onClick={() => setMapType(mapType === 'roadmap' ? 'satellite' : 'roadmap')} className="w-full py-2 flex items-center justify-center gap-2 border border-white/20 rounded text-gray-300 hover:bg-white/10 transition-colors uppercase tracking-widest text-xs font-bold">
+                                <Layers size={14} /> Toggle {mapType === 'roadmap' ? 'Satellite' : 'Map'}
+                            </button>
                             <button onClick={logout} className="w-full py-3 flex items-center justify-between px-4 bg-red-500/10 border border-red-500/50 rounded text-red-500 hover:bg-red-500/30 transition-colors">
                                 <span className="text-sm font-bold tracking-widest">Terminate Session</span>
                                 <Power size={16} />
@@ -195,9 +205,9 @@ const AdminDashboard = ({ logout, token }) => {
                 </div>
             </div>
 
-            <div className="w-96 h-full relative z-20 flex flex-col p-6 ml-auto pointer-events-auto">
-                <div className="glass-panel w-full h-full rounded-xl flex flex-col border-r-4 border-neonGreen overflow-hidden">
-                    <div className="bg-neonGreen/10 p-4 border-b border-neonGreen/20 flex items-center justify-between">
+            <div className="w-96 h-full relative z-20 flex flex-col p-6 ml-auto pointer-events-none">
+                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl pointer-events-auto w-full h-full rounded-xl flex flex-col border border-white/10 border-r-4 border-r-neonGreen overflow-hidden">
+                    <div className="bg-gradient-to-l from-neonGreen/10 to-transparent p-4 border-b border-white/10 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Users className="text-neonGreen" />
                             <h2 className="text-white font-bold uppercase tracking-widest text-sm">Mission Log</h2>
@@ -205,18 +215,18 @@ const AdminDashboard = ({ logout, token }) => {
                         <span className="bg-neonGreen/20 text-neonGreen text-xs px-2 py-1 rounded font-mono font-bold">{data.discoveries.length} REC</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                        {data.discoveries.length === 0 && <p className="text-white/40 text-xs text-center font-mono">No discoveries yet.</p>}
+                        {data.discoveries.length === 0 && <p className="text-gray-500 text-xs text-center font-mono mt-4">No discoveries yet.</p>}
                         {data.discoveries.map((d) => (
-                            <div key={d.id} className="bg-black/40 border border-white/10 rounded p-3 hover:border-neonGreen/50 transition-colors group">
+                            <div key={d.id} className="bg-black/60 border border-white/5 rounded p-3 hover:border-neonGreen/30 transition-colors group">
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className="text-white font-bold flex items-center gap-2 text-sm">
+                                    <span className="text-gray-200 font-bold flex items-center gap-2 text-sm">
                                         <MapPin size={14} className="text-neonGreen" /> {d.playerName}
                                     </span>
                                     <span className="text-[10px] font-mono text-neonGreen border border-neonGreen/30 px-1 rounded bg-neonGreen/10">SECURED</span>
                                 </div>
                                 <div className="flex justify-between items-end">
-                                    <span className="text-[10px] text-white/50 font-mono">TGT: {d.foxName}</span>
-                                    <span className="text-[10px] text-white/40 font-mono">{new Date(d.timestamp).toLocaleTimeString()}</span>
+                                    <span className="text-[10px] text-gray-400 font-mono">TGT: {d.foxName}</span>
+                                    <span className="text-[10px] text-gray-500 font-mono">{new Date(d.timestamp).toLocaleTimeString()}</span>
                                 </div>
                             </div>
                         ))}
@@ -230,6 +240,7 @@ const AdminDashboard = ({ logout, token }) => {
 const StudentDashboard = ({ logout, token }) => {
     const [loc, setLoc] = useState({ lat: null, lng: null });
     const [closestDist, setClosestDist] = useState(null);
+    const [mapType, setMapType] = useState('roadmap');
 
     useEffect(() => {
         let targets = [];
@@ -267,32 +278,39 @@ const StudentDashboard = ({ logout, token }) => {
         }
     }, [token]);
 
+    const tileUrl = mapType === 'roadmap' ? "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" : "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}";
+
     return (
         <>
-            <div className="absolute inset-0 z-0 opacity-60 brightness-75 contrast-125 hue-rotate-180 sepia-[.3]">
-                <MapContainer center={loc.lat ? [loc.lat, loc.lng] : [37.7749, -122.4194]} zoom={18} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+            <div className="absolute inset-0 z-0">
+                <MapContainer center={loc.lat ? [loc.lat, loc.lng] : [37.7749, -122.4194]} zoom={18} zoomControl={true} style={{ width: '100%', height: '100%' }}>
                     <ChangeView center={loc.lat ? [loc.lat, loc.lng] : [37.7749, -122.4194]} zoom={18} />
-                    <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+                    <TileLayer url={tileUrl} />
 
                     {loc.lat && <Marker position={[loc.lat, loc.lng]}><Popup>You are here</Popup></Marker>}
                 </MapContainer>
             </div>
 
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto w-11/12 max-w-md">
-                <div className="glass-panel p-4 rounded-xl border border-neonBlue flex flex-col items-center justify-center">
-                    <h3 className="text-neonBlue text-sm font-bold tracking-widest uppercase mb-1">Awaiting Mission Briefing</h3>
-                    <p className="text-white/60 text-xs font-mono">
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-11/12 max-w-md">
+                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl p-4 rounded-xl border border-neonBlue/40 flex flex-col items-center justify-center pointer-events-auto">
+                    <h3 className="text-neonBlue text-sm font-bold tracking-widest uppercase mb-1 drop-shadow-md">Awaiting Mission Briefing</h3>
+                    <p className="text-gray-300 text-xs font-mono">
                         {closestDist === null ? "Locating nearest target..." : `Distance to closest target: ${closestDist} meters`}
                     </p>
-                    {loc.lat && <p className="text-white/40 text-[10px] font-mono mt-2 flex gap-4"><span>LAT: {loc.lat.toFixed(5)}</span> <span>LNG: {loc.lng.toFixed(5)}</span></p>}
+                    {loc.lat && <p className="text-neutral-500 text-[10px] font-mono mt-2 flex gap-4"><span>LAT: {loc.lat.toFixed(5)}</span> <span>LNG: {loc.lng.toFixed(5)}</span></p>}
                 </div>
-                <button onClick={logout} className="mt-4 w-full py-2 bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-bold rounded hover:bg-red-500/30 tracking-widest shadow-[0_0_10px_#ef44444d]">
-                    ABORT MISSION
-                </button>
+                <div className="mt-4 flex gap-2 pointer-events-auto shadow-2xl">
+                    <button onClick={() => setMapType(mapType === 'roadmap' ? 'satellite' : 'roadmap')} className="flex-1 py-3 bg-gray-900/85 backdrop-blur-md border border-white/20 text-gray-300 text-xs font-bold rounded uppercase tracking-widest hover:bg-neutral-800 transition-colors">
+                        Layer: {mapType}
+                    </button>
+                    <button onClick={logout} className="flex-1 py-3 bg-red-900/60 backdrop-blur-md border border-red-500/50 text-red-400 text-xs font-bold rounded hover:bg-red-900/80 tracking-widest">
+                        ABORT MISSION
+                    </button>
+                </div>
             </div>
 
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-                <button onClick={() => alert('Scanner opening... (Please implement QR library)')} className="glass-panel px-12 py-4 rounded-full border border-neonGreen shadow-[0_0_20px_#39ff144d] bg-neonGreen/10 hover:bg-neonGreen/20 hover:scale-105 transition-all text-neonGreen font-bold tracking-widest text-lg flex items-center gap-3 group">
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-auto shadow-2xl">
+                <button onClick={() => alert('Scanner opening... (Please implement QR library)')} className="bg-gray-900/85 backdrop-blur-md px-12 py-4 rounded-full border-2 border-neonGreen shadow-[0_0_15px_#39ff144d] hover:bg-black hover:scale-105 transition-all text-neonGreen font-bold tracking-widest text-lg flex items-center gap-3 group">
                     <Crosshair className="group-hover:animate-spin" /> SCAN FOX
                 </button>
             </div>
@@ -306,17 +324,12 @@ export default function App() {
     const isAdminRoute = window.location.pathname.startsWith('/admin');
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-black flex">
-            {/* Universal HUD Top Borders (Stays on top of map) */}
-            <div className="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between p-6">
+        <div className="relative w-screen h-screen overflow-hidden bg-neutral-900 flex">
+            {/* Minimalist Top Bars, transparent */}
+            <div className="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between p-4">
                 <div className="w-full flex justify-between">
-                    <div className="glass-panel px-6 py-2 rounded border-t-2 border-neonBlue">
-                        <span className="text-neonBlue font-mono font-bold tracking-widest text-xs">SYS.STATUS // ONLINE</span>
-                    </div>
-                    <div className="glass-panel px-6 py-2 rounded border-t-2 border-red-500">
-                        <span className="text-red-500 font-mono font-bold tracking-widest flex items-center gap-2 text-xs">
-                            <Activity size={12} className="animate-pulse" /> LIVE
-                        </span>
+                    <div className="bg-gray-900/85 backdrop-blur-md px-4 py-1.5 rounded border-t-2 border-neonBlue shadow-lg">
+                        <span className="text-neonBlue font-mono font-bold tracking-widest text-[10px]">SYS.ONLINE</span>
                     </div>
                 </div>
             </div>
