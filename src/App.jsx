@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -25,6 +25,14 @@ const calcDistance = (lat1, lon1, lat2, lon2) => {
     const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
     return Math.floor(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 };
+
+function ChangeView({ center, zoom }) {
+    const map = useMap();
+    if (center[0] && center[1] && center[0] !== 37.7749) {
+        map.setView(center, zoom || map.getZoom());
+    }
+    return null;
+}
 
 const AuthPanel = ({ onAuth, isAdminRoute }) => {
     const [inputValue, setInputValue] = useState('');
@@ -137,7 +145,8 @@ const AdminDashboard = ({ logout, token }) => {
     return (
         <>
             <div className="absolute inset-0 z-0 opacity-60 brightness-75 contrast-125 hue-rotate-180 sepia-[.3]">
-                <MapContainer center={[37.7749, -122.4194]} zoom={2} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+                <MapContainer center={[37.7749, -122.4194]} zoom={18} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+                    <ChangeView center={data.targets.length > 0 ? [data.targets[0].lat, data.targets[0].lng] : [37.7749, -122.4194]} zoom={18} />
                     <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
 
                     {data.targets.map(t => (
@@ -261,7 +270,8 @@ const StudentDashboard = ({ logout, token }) => {
     return (
         <>
             <div className="absolute inset-0 z-0 opacity-60 brightness-75 contrast-125 hue-rotate-180 sepia-[.3]">
-                <MapContainer center={loc.lat ? [loc.lat, loc.lng] : [37.7749, -122.4194]} zoom={15} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+                <MapContainer center={loc.lat ? [loc.lat, loc.lng] : [37.7749, -122.4194]} zoom={18} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+                    <ChangeView center={loc.lat ? [loc.lat, loc.lng] : [37.7749, -122.4194]} zoom={18} />
                     <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
 
                     {loc.lat && <Marker position={[loc.lat, loc.lng]}><Popup>You are here</Popup></Marker>}
