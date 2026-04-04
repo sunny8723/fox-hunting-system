@@ -152,6 +152,13 @@ const AdminDashboard = ({ logout, token }) => {
         });
     };
 
+    const purgeRoster = async () => {
+        await fetch(`${API_BASE}/api/admin_purge_roster`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    };
+
     const deleteDiscovery = async (id) => {
         await fetch(`${API_BASE}/api/admin_delete_discovery`, {
             method: 'POST',
@@ -253,7 +260,12 @@ const AdminDashboard = ({ logout, token }) => {
                             <Activity className="text-yellow-500" />
                             <h2 className="text-white font-bold uppercase tracking-widest text-sm">Roster</h2>
                         </div>
-                        <span className="bg-yellow-500/20 text-yellow-500 text-xs px-2 py-1 rounded font-mono font-bold">{Object.keys(data.players || {}).length} LIVE</span>
+                        <div className="flex items-center gap-2">
+                            <button onClick={purgeRoster} title="Purge Offline Agents" className="bg-red-500/10 text-red-500 border border-red-500/30 p-1 px-2 rounded flex items-center gap-1 hover:bg-red-500/30 transition-colors">
+                                <Trash2 size={12} /> <span className="text-[9px] font-mono font-bold tracking-widest">PURGE</span>
+                            </button>
+                            <span className="bg-yellow-500/20 text-yellow-500 text-xs px-2 py-1 rounded font-mono font-bold">{Object.keys(data.players || {}).length} LIVE</span>
+                        </div>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-2">
                         {Object.keys(data.players || {}).length === 0 && <p className="text-gray-500 text-xs text-center font-mono mt-2">No active agents.</p>}
