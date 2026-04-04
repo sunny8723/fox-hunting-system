@@ -100,11 +100,9 @@ const AuthPanel = ({ onAuth, isAdminRoute }) => {
                 </button>
             </div>
 
-            {/* Light familiar Google Map background for Auth screen */}
+            {/* The user's custom photo background */}
             <div className="absolute inset-0 z-0">
-                <MapContainer center={[27.133, 93.731]} zoom={15} zoomControl={false} style={{ width: '100%', height: '100%' }}>
-                    <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" />
-                </MapContainer>
+                <img src="/my-photo.jpg" alt="Login Background" className="w-full h-full object-cover opacity-80" />
             </div>
         </div>
     );
