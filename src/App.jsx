@@ -403,7 +403,7 @@ const AdminDashboard = ({ logout, token }) => {
                             return (
                                 <div key={p.id} className={`rounded p-3 flex justify-between items-center transition-all duration-500 ${rankStyles}`}>
                                     <div className="flex items-center gap-3">
-                                        <span className="font-bold text-lg w-6 text-center">{icon || \`#\${index + 1}\`}</span>
+                                        <span className="font-bold text-lg w-6 text-center">{icon || `#${index + 1}`}</span>
                                         <div className="flex flex-col">
                                             <span className="font-bold text-sm tracking-wide truncate max-w-[120px]">{p.name || 'Agent'}</span>
                                             {p.lastSecured > 0 && <span className="text-[9px] opacity-70 font-mono">LST: {new Date(p.lastSecured).toLocaleTimeString()}</span>}
