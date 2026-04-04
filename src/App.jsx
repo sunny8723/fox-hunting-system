@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair, Layers } from 'lucide-react';
+import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair, Layers, QrCode } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import jsQR from "jsqr";
+import { QRCodeSVG } from 'qrcode.react';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -114,6 +115,7 @@ const AdminDashboard = ({ logout, token }) => {
     const [lat, setLat] = useState('');
     const [lng, setLng] = useState('');
     const [mapType, setMapType] = useState('roadmap');
+    const [selectedQR, setSelectedQR] = useState(null);
 
     useEffect(() => {
         const fetchSync = () => {
@@ -131,13 +133,21 @@ const AdminDashboard = ({ logout, token }) => {
         await fetch(`${API_BASE}/api/admin_set_target`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ name: 'Fox ' + Math.floor(Math.random() * 100), lat: parseFloat(lat), lng: parseFloat(lng) })
+            body: JSON.stringify({ name: 'Fox ' + Math.floor(Math.random() * 1000), lat: parseFloat(lat), lng: parseFloat(lng) })
         });
         setLat(''); setLng('');
     };
 
     const deleteFox = async (id) => {
         await fetch(`${API_BASE}/api/admin_delete_target`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ id })
+        });
+    };
+
+    const deleteDiscovery = async (id) => {
+        await fetch(`${API_BASE}/api/admin_delete_discovery`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ id })
@@ -163,15 +173,33 @@ const AdminDashboard = ({ logout, token }) => {
                 </MapContainer>
             </div>
 
-            <div className="w-80 h-full relative z-20 flex flex-col p-6 pointer-events-none">
-                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl pointer-events-auto w-full h-full rounded-xl flex flex-col border border-white/10 border-l-4 border-l-neonBlue overflow-hidden">
+            {selectedQR && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto" onClick={() => setSelectedQR(null)}>
+                    <div className="bg-gray-900 overflow-hidden border border-neonBlue/50 shadow-[0_0_50px_#00f3ff4d] flex flex-col items-center animate-fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="bg-white p-8 pb-4">
+                            <QRCodeSVG value={selectedQR.id} size={256} />
+                        </div>
+                        <div className="w-full text-center py-4 bg-neonBlue/10 border-t border-neonBlue/30 text-white font-mono font-bold tracking-widest text-[10px]">
+                            ID: {selectedQR.id}
+                        </div>
+                        <div className="w-full text-center pb-4 bg-neonBlue/10 text-white font-mono font-bold tracking-widest text-lg">
+                            {selectedQR.name || 'TARGET'}
+                        </div>
+                        <button className="w-full bg-red-500/20 text-red-400 py-3 font-bold uppercase tracking-widest hover:bg-red-500/40 transition-colors" onClick={() => setSelectedQR(null)}>CLOSE TERMINAL</button>
+                    </div>
+                </div>
+            )}
+
+            <div className="w-80 h-full relative z-20 flex flex-col gap-4 p-6 pointer-events-none">
+                {/* Operation Control Box */}
+                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl pointer-events-auto w-full flex-1 rounded-xl flex flex-col border border-white/10 border-l-4 border-l-neonBlue overflow-hidden">
                     <div className="bg-gradient-to-r from-neonBlue/10 to-transparent p-4 border-b border-white/10 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Target className="text-neonBlue" />
                             <h2 className="text-white font-bold uppercase tracking-widest text-sm">Operation Control</h2>
                         </div>
                     </div>
-                    <div className="p-6 flex-1 flex flex-col gap-6 overflow-y-auto">
+                    <div className="p-6 flex-1 flex flex-col gap-4 overflow-y-auto">
                         <div className="space-y-2">
                             <label className="text-gray-400 text-xs font-bold uppercase tracking-wider">Deploy Target (Lat / Lng)</label>
                             <div className="flex gap-2">
@@ -183,12 +211,19 @@ const AdminDashboard = ({ logout, token }) => {
 
                         <div className="w-full h-px bg-white/10 my-2"></div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 flex-1 overflow-y-auto">
                             <label className="text-gray-400 text-xs font-bold uppercase tracking-wider">Active Targets</label>
                             {data.targets.map(t => (
-                                <div key={t.id} className="flex justify-between items-center text-xs text-gray-300 border border-white/10 p-2 rounded bg-black/40">
+                                <div key={t.id} className="flex justify-between items-center text-xs text-gray-300 border border-white/10 p-2 rounded bg-black/40 mb-2">
                                     <span className="font-mono truncate mr-2">{t.name || t.id}</span>
-                                    <button onClick={() => deleteFox(t.id)} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setSelectedQR(t)} className="text-neonBlue hover:text-white transition-colors" title="Generate QR">
+                                            <QrCode size={14} />
+                                        </button>
+                                        <button onClick={() => deleteFox(t.id)} className="text-red-500 hover:text-red-400 transition-colors" title="Delete">
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -202,6 +237,26 @@ const AdminDashboard = ({ logout, token }) => {
                                 <Power size={16} />
                             </button>
                         </div>
+                    </div>
+                </div>
+
+                {/* Active Participants Box */}
+                <div className="bg-gray-900/85 backdrop-blur-md shadow-2xl pointer-events-auto w-full h-1/4 min-h-[140px] rounded-xl flex flex-col border border-white/10 border-l-4 border-l-yellow-500 overflow-hidden">
+                    <div className="bg-gradient-to-r from-yellow-500/10 to-transparent p-4 border-b border-white/10 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Activity className="text-yellow-500" />
+                            <h2 className="text-white font-bold uppercase tracking-widest text-sm">Roster</h2>
+                        </div>
+                        <span className="bg-yellow-500/20 text-yellow-500 text-xs px-2 py-1 rounded font-mono font-bold">{Object.keys(data.players || {}).length} LIVE</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        {Object.keys(data.players || {}).length === 0 && <p className="text-gray-500 text-xs text-center font-mono mt-2">No active agents.</p>}
+                        {Object.values(data.players || {}).map(p => (
+                            <div key={p.id} className="bg-black/60 border border-white/5 rounded p-2 flex justify-between items-center text-xs">
+                                <span className="text-gray-200 font-bold max-w-[120px] truncate">{p.name || 'Agent'}</span>
+                                <span className="text-[10px] text-yellow-500 font-mono tracking-widest animate-pulse">ACTIVE</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -218,17 +273,20 @@ const AdminDashboard = ({ logout, token }) => {
                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                         {data.discoveries.length === 0 && <p className="text-gray-500 text-xs text-center font-mono mt-4">No discoveries yet.</p>}
                         {data.discoveries.map((d) => (
-                            <div key={d.id} className="bg-black/60 border border-white/5 rounded p-3 hover:border-neonGreen/30 transition-colors group">
-                                <div className="flex justify-between items-start mb-2">
+                            <div key={d.id} className="bg-black/60 border border-white/5 rounded p-3 hover:border-neonGreen/30 transition-colors group relative">
+                                <div className="flex justify-between items-start mb-2 pr-6">
                                     <span className="text-gray-200 font-bold flex items-center gap-2 text-sm">
                                         <MapPin size={14} className="text-neonGreen" /> {d.playerName}
                                     </span>
                                     <span className="text-[10px] font-mono text-neonGreen border border-neonGreen/30 px-1 rounded bg-neonGreen/10">SECURED</span>
                                 </div>
                                 <div className="flex justify-between items-end">
-                                    <span className="text-[10px] text-gray-400 font-mono">TGT: {d.foxName}</span>
+                                    <span className="text-[10px] text-gray-400 font-mono">TGT: {d.foxName || d.foxId}</span>
                                     <span className="text-[10px] text-gray-500 font-mono">{new Date(d.timestamp).toLocaleTimeString()}</span>
                                 </div>
+                                <button onClick={() => deleteDiscovery(d.id)} className="absolute top-3 right-3 text-red-500/50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete Mission Log">
+                                    <Trash2 size={14} />
+                                </button>
                             </div>
                         ))}
                     </div>
