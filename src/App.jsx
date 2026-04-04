@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Activity, Power, Map as MapIcon, Target, Users, MapPin, Trash2, Crosshair } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconUrl: markerIcon,
+    iconRetinaUrl: markerIcon2x,
+    shadowUrl: markerShadow,
+});
 
 const API_BASE = '';
 
@@ -45,7 +58,7 @@ const AuthPanel = ({ onAuth, isAdminRoute }) => {
 
     return (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="glass-panel p-10 rounded-2xl w-[400px] flex flex-col items-center animate-fade-in relative">
+            <div className="glass-panel p-10 rounded-2xl w-[400px] flex flex-col items-center animate-fade-in relative z-50">
                 <div className="absolute top-4 right-4 bg-neonBlue/10 p-1 px-3 rounded text-neonBlue text-xs font-bold tracking-widest border border-neonBlue/30">
                     {isAdminRoute ? 'ADMIN PORTAL' : 'STUDENT PORTAL'}
                 </div>
@@ -75,6 +88,13 @@ const AuthPanel = ({ onAuth, isAdminRoute }) => {
                 >
                     {loading ? 'AUTHENTICATING...' : 'AUTHENTICATE'}
                 </button>
+            </div>
+
+            {/* Display static cool map background purely for auth screen */}
+            <div className="absolute inset-0 z-0 opacity-40 brightness-75 contrast-125 hue-rotate-180 sepia-[.3]">
+                <MapContainer center={[37.7749, -122.4194]} zoom={13} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+                    <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+                </MapContainer>
             </div>
         </div>
     );
@@ -116,6 +136,20 @@ const AdminDashboard = ({ logout, token }) => {
 
     return (
         <>
+            <div className="absolute inset-0 z-0 opacity-60 brightness-75 contrast-125 hue-rotate-180 sepia-[.3]">
+                <MapContainer center={[37.7749, -122.4194]} zoom={2} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+                    <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+
+                    {data.targets.map(t => (
+                        t.lat && t.lng ? <Marker key={t.id} position={[t.lat, t.lng]}><Popup>Target ID: {t.id}</Popup></Marker> : null
+                    ))}
+
+                    {Object.values(data.players || {}).map(p => (
+                        p.lat && p.lng ? <Marker key={p.id} position={[p.lat, p.lng]}><Popup>Player: {p.name}</Popup></Marker> : null
+                    ))}
+                </MapContainer>
+            </div>
+
             <div className="w-80 h-full relative z-20 flex flex-col p-6 pointer-events-auto">
                 <div className="glass-panel w-full h-full rounded-xl flex flex-col border-l-4 border-neonBlue overflow-hidden">
                     <div className="bg-neonBlue/10 p-4 border-b border-neonBlue/20 flex items-center gap-3">
@@ -136,7 +170,7 @@ const AdminDashboard = ({ logout, token }) => {
                             <label className="text-neonBlue/70 text-xs font-bold uppercase tracking-wider">Active Targets</label>
                             {data.targets.map(t => (
                                 <div key={t.id} className="flex justify-between items-center text-xs text-white border border-white/10 p-2 rounded bg-black/30">
-                                    <span className="font-mono">{t.id}</span>
+                                    <span className="font-mono truncate mr-2">{t.id}</span>
                                     <button onClick={() => deleteFox(t.id)} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
                                 </div>
                             ))}
@@ -226,6 +260,14 @@ const StudentDashboard = ({ logout, token }) => {
 
     return (
         <>
+            <div className="absolute inset-0 z-0 opacity-60 brightness-75 contrast-125 hue-rotate-180 sepia-[.3]">
+                <MapContainer center={loc.lat ? [loc.lat, loc.lng] : [37.7749, -122.4194]} zoom={15} zoomControl={false} style={{ width: '100%', height: '100%' }}>
+                    <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+
+                    {loc.lat && <Marker position={[loc.lat, loc.lng]}><Popup>You are here</Popup></Marker>}
+                </MapContainer>
+            </div>
+
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto w-11/12 max-w-md">
                 <div className="glass-panel p-4 rounded-xl border border-neonBlue flex flex-col items-center justify-center">
                     <h3 className="text-neonBlue text-sm font-bold tracking-widest uppercase mb-1">Awaiting Mission Briefing</h3>
@@ -240,7 +282,7 @@ const StudentDashboard = ({ logout, token }) => {
             </div>
 
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-                <button onClick={() => alert('Scanner opening... (Please attach QR logic)')} className="glass-panel px-12 py-4 rounded-full border border-neonGreen shadow-[0_0_20px_#39ff144d] bg-neonGreen/10 hover:bg-neonGreen/20 hover:scale-105 transition-all text-neonGreen font-bold tracking-widest text-lg flex items-center gap-3 group">
+                <button onClick={() => alert('Scanner opening... (Please implement QR library)')} className="glass-panel px-12 py-4 rounded-full border border-neonGreen shadow-[0_0_20px_#39ff144d] bg-neonGreen/10 hover:bg-neonGreen/20 hover:scale-105 transition-all text-neonGreen font-bold tracking-widest text-lg flex items-center gap-3 group">
                     <Crosshair className="group-hover:animate-spin" /> SCAN FOX
                 </button>
             </div>
@@ -251,23 +293,12 @@ const StudentDashboard = ({ logout, token }) => {
 export default function App() {
     const [auth, setAuth] = useState(null);
 
-    // Checking path to decide if admin route
     const isAdminRoute = window.location.pathname.startsWith('/admin');
 
     return (
         <div className="relative w-screen h-screen overflow-hidden bg-black flex">
-            {/* Universal Background Map Placeholder */}
-            <div
-                className="absolute inset-0 z-0 bg-[#050B14] opacity-80"
-                style={{
-                    backgroundImage: 'radial-gradient(circle at center, transparent 0%, #000 100%), linear-gradient(rgba(0,243,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,243,255,0.05) 1px, transparent 1px)',
-                    backgroundSize: '100% 100%, 40px 40px, 40px 40px',
-                    backgroundPosition: 'center center'
-                }}
-            ></div>
-
-            {/* Universal HUD Top Borders */}
-            <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-6">
+            {/* Universal HUD Top Borders (Stays on top of map) */}
+            <div className="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between p-6">
                 <div className="w-full flex justify-between">
                     <div className="glass-panel px-6 py-2 rounded border-t-2 border-neonBlue">
                         <span className="text-neonBlue font-mono font-bold tracking-widest text-xs">SYS.STATUS // ONLINE</span>
