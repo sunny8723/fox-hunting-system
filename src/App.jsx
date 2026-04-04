@@ -253,7 +253,10 @@ const AdminDashboard = ({ logout, token }) => {
                         {Object.keys(data.players || {}).length === 0 && <p className="text-gray-500 text-xs text-center font-mono mt-2">No active agents.</p>}
                         {Object.values(data.players || {}).map(p => (
                             <div key={p.id} className="bg-black/60 border border-white/5 rounded p-2 flex justify-between items-center text-xs">
-                                <span className="text-gray-200 font-bold max-w-[120px] truncate">{p.name || 'Agent'}</span>
+                                <div className="flex flex-col">
+                                    <span className="text-gray-200 font-bold max-w-[120px] truncate">{p.name || 'Agent'}</span>
+                                    {p.ip && <span className="text-[9px] text-gray-500 font-mono mt-0.5" title="Player IP Address">IP: {p.ip}</span>}
+                                </div>
                                 <span className="text-[10px] text-yellow-500 font-mono tracking-widest animate-pulse">ACTIVE</span>
                             </div>
                         ))}

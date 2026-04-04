@@ -9,7 +9,7 @@ export default async function handler(req, res) {
         let user;
         try {
             user = verifyToken(req);
-        } catch(authErr) {
+        } catch (authErr) {
             console.error("Auth Error in /api/update_location:", authErr.message);
             return res.status(401).json({ error: 'Unauthorized' });
         }
@@ -29,9 +29,12 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'Database not connected' });
         }
 
+        const ip = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.socket?.remoteAddress || 'Unknown IP');
+
         await db.collection('players').doc(user.id).set({
             lat,
             lng,
+            ip,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 
